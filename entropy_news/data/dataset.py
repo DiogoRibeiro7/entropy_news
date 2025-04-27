@@ -14,7 +14,7 @@ class NewsDataset(Dataset):
             seq += [0] * (self.seq_len + 1 - len(seq))
         else:
             seq = seq[:self.seq_len + 1]
-        return torch.Tensor(seq, dtype=torch.long)
+        return torch.Tensor(seq).long()
 
     def __len__(self) -> int:
         return len(self.data)
