@@ -1,6 +1,6 @@
 # entropy_news/main_forecast.py
 
-import logging
+from utils.logger import setup_logger
 import torch
 import pickle
 import pandas as pd
@@ -9,8 +9,7 @@ from data.dataset import NewsDataset
 from model.lstm_entropy import EntropyLSTM
 from evaluation.news_model_update import NewsModelUpdateCalculator
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_logger('train_logger', 'logs/train.log')
 
 def main():
     # Parâmetros

@@ -1,6 +1,6 @@
 # entropy_news/rolling_train_forecast.py
 
-import logging
+from utils.logger import setup_logger
 import os
 import pickle
 import pandas as pd
@@ -12,8 +12,8 @@ from model.trainer import Trainer
 from evaluation.news_model_update import NewsModelUpdateCalculator
 from datetime import datetime
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_logger('train_logger', 'logs/train.log')
+
 
 def rolling_pipeline(months: list, base_data_dir: str, output_dir: str, seq_len: int = 100):
     # Hyperparameters
@@ -86,6 +86,12 @@ def load_texts_for_month(month: str, base_data_dir: str):
 def load_texts(file_path: str):
     with open(file_path, 'r', encoding='utf-8') as f:
         return [line.strip() for line in f if line.strip()]
+    
+def load_texts_for_months(months: list, base_data_dir: str):
+    texts = []
+    for month in months:
+        texts += load_texts_for_month(month, base_data_dir)
+    return texts
 
 if __name__ == "__main__":
     # Example usage
