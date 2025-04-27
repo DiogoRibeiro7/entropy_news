@@ -15,7 +15,7 @@ class TextPreprocessor:
     def __init__(self, vocab_size: int = 10000):
         self.vocab_size = vocab_size
         self.vocab: Dict[str, int] = {}
-        self.reverse_vocab = {}
+        self.reverse_vocab: Dict[int, str] = {}
         self.embedding_matrix: Optional[np.ndarray] = None
 
     def clean_text(self, text: str) -> str:
@@ -29,7 +29,7 @@ class TextPreprocessor:
 
     def build_vocab(self, texts: List[str]) -> None:
         logger.info("Building vocabulary...")
-        counter = Counter()
+        counter: Counter[str] = Counter()
         for text in texts:
             tokens = self.tokenize(self.clean_text(text))
             counter.update(tokens)
@@ -63,7 +63,7 @@ class TextPreprocessor:
         self.embedding_matrix = np.random.normal(0, 1, (len(self.vocab), embedding_dim))
         for word, idx in self.vocab.items():
             vector = embeddings_index.get(word)
-            if vector is not None:
+            if vector is not None and isinstance(vector, np.ndarray):
                 self.embedding_matrix[idx] = vector
 
         logger.info(f"Loaded GloVe embeddings with shape: {self.embedding_matrix.shape}")
