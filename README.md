@@ -58,6 +58,10 @@ entropy-news-train
 ```
 - Trains the LSTM using training news (`data/news_train.txt`).
 - Saves the trained model in `output/model_final.pth`.
+  You can customise the inputs and hyperparameters:
+```bash
+entropy-news-train --train-data my_train.txt --epochs 10 --batch-size 64
+```
 
 ### 2. Forecast Entropies
 ```bash
@@ -65,6 +69,10 @@ entropy-news-forecast
 ```
 - Calculates `ENT`, `ENT_news`, `ENT_model` using new news (`data/news_new.txt`).
 - Exports results to `output/forecast_results.csv`.
+  Example with options:
+```bash
+entropy-news-forecast --new-data other.txt --output-csv results.csv
+```
 
 ### 3. Reuse Vocabulary
 You can save the built vocabulary for later runs and reload it instead of
