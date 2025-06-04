@@ -29,6 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--learning-rate", type=float, default=0.001)
+    parser.add_argument("--num-layers", type=int, default=1, help="Number of LSTM layers")
+    parser.add_argument("--dropout", type=float, default=0.0, help="LSTM dropout between layers")
     parser.add_argument(
         "--model-out",
         default="output/model_final.pth",
@@ -61,6 +63,8 @@ def main(argv: list[str] | None = None) -> None:
         vocab_size=len(preprocessor.vocab),
         embed_dim=args.embed_dim,
         hidden_dim=args.hidden_dim,
+        num_layers=args.num_layers,
+        dropout=args.dropout,
         embedding_matrix=preprocessor.embedding_matrix,
     )
     model = model.to(model.device)
