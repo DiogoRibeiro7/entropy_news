@@ -24,6 +24,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--embed-dim", type=int, default=100)
     parser.add_argument("--hidden-dim", type=int, default=16)
     parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--num-layers", type=int, default=1, help="Number of LSTM layers")
+    parser.add_argument("--dropout", type=float, default=0.0, help="LSTM dropout between layers")
     return parser
 
 def main(argv: list[str] | None = None) -> None:
@@ -48,6 +50,8 @@ def main(argv: list[str] | None = None) -> None:
         vocab_size=len(vocab),
         embed_dim=args.embed_dim,
         hidden_dim=args.hidden_dim,
+        num_layers=args.num_layers,
+        dropout=args.dropout,
     )
     model_old.load_state_dict(torch.load(args.model_path))
     model_old = model_old.to(model_old.device)
@@ -57,6 +61,8 @@ def main(argv: list[str] | None = None) -> None:
         vocab_size=len(vocab),
         embed_dim=args.embed_dim,
         hidden_dim=args.hidden_dim,
+        num_layers=args.num_layers,
+        dropout=args.dropout,
     )
     model_new.load_state_dict(torch.load(args.model_path))
     model_new = model_new.to(model_new.device)
