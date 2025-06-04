@@ -15,7 +15,13 @@ from datetime import datetime
 logger = setup_logger('train_logger', 'logs/train.log')
 
 
-def rolling_pipeline(months: list, base_data_dir: str, output_dir: str, seq_len: int = 100):
+def rolling_pipeline(
+    months: list,
+    base_data_dir: str,
+    output_dir: str,
+    seq_len: int = 100,
+    train_window_size: int = 6,
+):
     # Hyperparameters
     vocab_size = 10000
     embed_dim = 100
@@ -27,8 +33,8 @@ def rolling_pipeline(months: list, base_data_dir: str, output_dir: str, seq_len:
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # Initialize preprocessor and vocab
-    train_texts = load_texts_for_months(months[:-1], base_data_dir)
+    # Initialize preprocessor and vocab using the initial training window
+    train_texts = load_texts_for_months(months[:train_window_size], base_data_dir)
     preprocessor = TextPreprocessor(vocab_size=vocab_size)
     preprocessor.build_vocab(train_texts)
 
@@ -47,7 +53,8 @@ def rolling_pipeline(months: list, base_data_dir: str, output_dir: str, seq_len:
 
     results = []
 
-    for current_month in months[-1:]:
+    # Iterate over each month after the initial training window
+    for current_month in months[train_window_size:]:
         logger.info(f"Processing month: {current_month}")
 
         # Load new month's data
@@ -98,4 +105,5 @@ if __name__ == "__main__":
     months = ["2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07"]
     base_data_dir = "data/"
     output_dir = "output/"
-    rolling_pipeline(months, base_data_dir, output_dir)
+    train_window_size = 6
+    rolling_pipeline(months, base_data_dir, output_dir, train_window_size=train_window_size)
