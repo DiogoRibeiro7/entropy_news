@@ -60,7 +60,8 @@ entropy-news-train
 - Saves the trained model in `output/model_final.pth`.
   You can customise the inputs and hyperparameters:
 ```bash
-entropy-news-train --train-data my_train.txt --epochs 10 --batch-size 64
+entropy-news-train --train-data my_train.txt --epochs 10 --batch-size 64 \
+                   --learning-rate 0.0005
 ```
 
 ### 2. Forecast Entropies
@@ -71,7 +72,8 @@ entropy-news-forecast
 - Exports results to `output/forecast_results.csv`.
   Example with options:
 ```bash
-entropy-news-forecast --new-data other.txt --output-csv results.csv
+entropy-news-forecast --new-data other.txt --output-csv results.csv \
+                      --fine-tune-epochs 8 --batch-size 2
 ```
 
 ### 3. Reuse Vocabulary
