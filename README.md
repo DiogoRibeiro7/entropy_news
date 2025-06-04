@@ -77,5 +77,22 @@ To process multiple months:
 
 This can be automated into a single pipeline.
 
+## 📝 Logging
+
+All scripts configure logging with ``utils.setup_logger``. The helper will
+ignore duplicate handlers for the same file, but it is best to call it once per
+process and reuse the returned logger throughout the script:
+
+```python
+from entropy_news.utils import setup_logger
+
+logger = setup_logger("train_logger", "logs/train.log")
+
+# reuse ``logger`` across modules
+```
+
+Calling ``setup_logger`` multiple times with the same arguments is harmless but
+may incur a small overhead.
+
 ## 📚 Reference
 - Cieslak, L., Lussange, J., & Thesmar, D. (2023). *New News is Bad News: Information, Expectations, and Financial Markets*. [arXiv:2309.05560](https://arxiv.org/abs/2309.05560)
