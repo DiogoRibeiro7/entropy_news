@@ -25,13 +25,13 @@ entropy_news/
 ├── utils/
 │   └── metrics.py             # Auxiliary functions (e.g., perplexity computation)
 │
-├── main_train.py              # Main script for training the initial model
+├── main.py                    # Main script for training the initial model
 ├── main_forecast.py           # Script for predicting ENT, ENT_news, ENT_model, and exporting to CSV
 │
 ├── output/
 │   └── (generated models and results)
 │
-├── requirements.txt           # Project dependencies
+├── pyproject.toml             # Project dependencies managed by Poetry
 └── README.md                  # Documentation and usage instructions
 ```
 
@@ -40,9 +40,7 @@ entropy_news/
 ```bash
 git clone <repository>
 cd entropy_news
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+poetry install
 ```
 
 Also download GloVe:
@@ -55,7 +53,7 @@ unzip glove.6B.zip
 
 ### 1. Train the Model
 ```bash
-python main_train.py
+python entropy_news/main.py
 ```
 - Trains the LSTM using training news (`data/news_train.txt`).
 - Saves the trained model in `output/model_final.pth`.
