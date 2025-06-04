@@ -1,31 +1,37 @@
 # AGENTS Instructions
 
-Bem-vindo ao repositório **Entropy News**.
+Welcome to the **Entropy News** repository.
 
-Este ficheiro define orientações para futuras alterações. Todas as modificações no árvore a partir deste diretório devem seguir estas regras.
+This file defines guidelines for future changes. All modifications in the tree from this directory must follow these rules.
 
-## Estilo de código
+## Code Style
 
-- Utilize Python 3.10 ou superior com *type hints* e *docstrings* em todas as funções.
-- Prefira `snake_case` para variáveis e funções.
-- Comentários e mensagens devem ser breves e, quando possível, em inglês.
+- Use Python 3.10 or higher with *type hints* and *docstrings* in all functions.
+- Prefer `snake_case` for variables and functions.
+- Comments and messages should be brief and, when possible, in English.
 
-## Funcionalidades recomendadas
+## Recommended Features
 
-- Os scripts `main.py` e `main_forecast.py` já suportam `argparse` para permitir parametrização via linha de comando.
-- O carregamento do GloVe detecta automaticamente a dimensão das *embeddings* (podendo ser sobreposta com argumento).
-- A classe `EntropyLSTM` permite configurar `num_layers` e `dropout`.
-- Testes unitários para `EntropyCalculator` e `NewsModelUpdateCalculator` encontram-se em `tests/`.
+- The scripts `main.py` and `main_forecast.py` already support `argparse` to allow command-line parameterization.
+- GloVe loading automatically detects the embedding dimension (can be overridden with an argument).
+- The `EntropyLSTM` class allows configuring `num_layers` and `dropout`.
+- Unit tests for `EntropyCalculator` and `NewsModelUpdateCalculator` are located in `tests/`.
 
-Qualquer nova funcionalidade deve manter compatibilidade com estas extensões.
+Any new feature should remain compatible with these extensions.
 
-## Testes
+## Tests
 
-- Ao alterar código Python, execute `pytest -q` a partir da raiz do repositório e assegure-se de que todos os testes passam.
-- Se novos comportamentos forem adicionados, inclua testes correspondentes dentro de `tests/`.
+- When modifying Python code, run:
+
+```bash
+  pytest -q
+```
+
+
+- From the repository root and ensure that all tests pass.
+- If new behaviors are added, include corresponding tests inside `tests/`.
 
 ## Pull Requests
 
-- Mensagens de *commit* devem ser concisas (ex.: `feat: add cli support`).
-- O corpo do PR deve descrever resumidamente as alterações e referir se os testes passaram.
-
+- Commit messages should be concise (e.g., `feat: add cli support`).
+- The PR body should briefly describe the changes and note whether the tests passed.
