@@ -69,8 +69,13 @@ class TextPreprocessor:
         logger.info(f"Loaded GloVe embeddings with shape: {self.embedding_matrix.shape}")
 
     def save_vocab(self, filepath: str) -> None:
-        """Persist the current vocabulary to ``filepath`` as JSON."""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        """Persist the current vocabulary to ``filepath`` as JSON.
+
+        Filenames without a directory component are allowed.
+        """
+        directory = os.path.dirname(filepath)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
         data = {
             "vocab_size": self.vocab_size,
             "vocab": self.vocab,
