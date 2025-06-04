@@ -11,6 +11,20 @@ class EntropyCalculator:
         self.device = model.device
 
     def compute_entropy(self, dataset: Dataset, batch_size: int = 1) -> float:
+        """Return cross-entropy of ``model`` on ``dataset``.
+
+        Parameters
+        ----------
+        dataset : Dataset
+            Dataset yielding input and target token sequences.
+        batch_size : int, optional
+            Size of each evaluation batch, by default ``1``.
+
+        Returns
+        -------
+        float
+            Average token-wise cross-entropy ignoring padding tokens.
+        """
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         self.model.eval()
 
