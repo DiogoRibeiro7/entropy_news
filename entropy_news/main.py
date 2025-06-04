@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> None:
     # Preprocessar
     preprocessor = TextPreprocessor(vocab_size=args.vocab_size)
     preprocessor.build_vocab(texts)
-    preprocessor.load_glove_embeddings(args.glove_path)
+    preprocessor.load_glove_embeddings(args.glove_path, args.embed_dim)
 
     encoded = [preprocessor.encode(t) for t in texts]
     dataset = NewsDataset(encoded, seq_len=args.seq_len)
