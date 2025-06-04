@@ -24,8 +24,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--embed-dim", type=int, default=100)
     parser.add_argument("--hidden-dim", type=int, default=16)
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--num-layers", type=int, default=1, help="Number of LSTM layers")
-    parser.add_argument("--dropout", type=float, default=0.0, help="LSTM dropout between layers")
+    parser.add_argument("--num-layers", type=int, default=2, help="Number of LSTM layers")
+    parser.add_argument("--dropout", type=float, default=0.1, help="LSTM dropout between layers")
+    parser.add_argument(
+        "--fine-tune-epochs",
+        type=int,
+        default=5,
+        help="Epochs used when fine-tuning with new data",
+    )
     return parser
 
 def main(argv: list[str] | None = None) -> None:
@@ -70,7 +76,7 @@ def main(argv: list[str] | None = None) -> None:
     # Pequeno fine-tuning para simular atualização
     from entropy_news.model import Trainer
     trainer = Trainer(model_new)
-    trainer.fine_tune(new_dataset, epochs=5, batch_size=args.batch_size)
+    trainer.fine_tune(new_dataset, epochs=args.fine_tune_epochs, batch_size=args.batch_size)
 
     # Calcular ENT, ENT_news e ENT_model
     calculator = NewsModelUpdateCalculator(model_old, model_new)
