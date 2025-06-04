@@ -68,9 +68,9 @@ def rolling_pipeline(months: list, base_data_dir: str, output_dir: str, seq_len:
         trainer = Trainer(model)
         trainer.fine_tune(new_dataset, epochs=fine_tune_epochs, batch_size=32)
 
-        # Compute ENT, ENT_news, ENT_model
+        # Compute ENT, ENT_news and ENT_model
         calculator = NewsModelUpdateCalculator(model_old, model)
-        entropies = calculator.compute_entropies(None, new_dataset)
+        entropies = calculator.compute_entropies(new_dataset)
         entropies['month'] = current_month
         results.append(entropies)
 

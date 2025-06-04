@@ -10,12 +10,21 @@ class NewsModelUpdateCalculator:
         self.new_model = new_model
         self.device = new_model.device
 
-    def compute_entropies(self, old_dataset: Dataset, new_dataset: Dataset, batch_size: int = 1) -> dict:
-        """
-        Decomposes total entropy change into:
-        - ENT: Entropy of new model on new dataset
-        - ENT_news: Entropy of old model on new dataset
-        - ENT_model: Difference due to model update
+    def compute_entropies(self, new_dataset: Dataset, batch_size: int = 1) -> dict:
+        """Decompose the entropy change after a model update.
+
+        Parameters
+        ----------
+        new_dataset : Dataset
+            Dataset containing the new data on which the models will be
+            evaluated.
+        batch_size : int, optional
+            Batch size for the entropy computation, by default 1.
+
+        Returns
+        -------
+        dict
+            Dictionary with the keys ``ENT``, ``ENT_news`` and ``ENT_model``.
         """
         old_entropy_calculator = EntropyCalculator(self.old_model)
         new_entropy_calculator = EntropyCalculator(self.new_model)
@@ -31,6 +40,6 @@ class NewsModelUpdateCalculator:
         }
 
 
-# Exemplo de uso:
+# Example usage:
 # update_calculator = NewsModelUpdateCalculator(old_model, new_model)
-# entropies = update_calculator.compute_entropies(old_dataset, new_dataset)
+# entropies = update_calculator.compute_entropies(new_dataset)

@@ -59,9 +59,9 @@ def main():
     trainer = Trainer(model_new)
     trainer.fine_tune(new_dataset, epochs=5, batch_size=32)
 
-    # Calcular ENT, ENT_news, ENT_model
+    # Calcular ENT, ENT_news e ENT_model
     calculator = NewsModelUpdateCalculator(model_old, model_new)
-    entropies = calculator.compute_entropies(None, new_dataset)
+    entropies = calculator.compute_entropies(new_dataset)
 
     # Exportar para CSV
     df = pd.DataFrame([entropies])
