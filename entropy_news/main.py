@@ -1,12 +1,11 @@
 # entropy_news/main.py
 
-from utils.logger import setup_logger
 import torch
 import pickle
-from data.preprocessor import TextPreprocessor
-from data.dataset import NewsDataset
-from model.lstm_entropy import EntropyLSTM
-from model.trainer import Trainer
+
+from entropy_news.utils import setup_logger
+from entropy_news.data import TextPreprocessor, NewsDataset
+from entropy_news.model import EntropyLSTM, Trainer
 
 logger = setup_logger('train_logger', 'logs/train.log')
 
