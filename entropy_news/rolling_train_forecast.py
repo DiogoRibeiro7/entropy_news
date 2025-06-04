@@ -1,16 +1,16 @@
 # entropy_news/rolling_train_forecast.py
 
-from utils.logger import setup_logger
 import os
 import pickle
+from datetime import datetime
+
 import pandas as pd
 import torch
-from data.preprocessor import TextPreprocessor
-from data.dataset import NewsDataset
-from model.lstm_entropy import EntropyLSTM
-from model.trainer import Trainer
-from evaluation.news_model_update import NewsModelUpdateCalculator
-from datetime import datetime
+
+from entropy_news.utils import setup_logger
+from entropy_news.data import TextPreprocessor, NewsDataset
+from entropy_news.model import EntropyLSTM, Trainer
+from entropy_news.evaluation import NewsModelUpdateCalculator
 
 logger = setup_logger('train_logger', 'logs/train.log')
 
