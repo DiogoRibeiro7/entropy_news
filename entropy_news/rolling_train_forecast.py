@@ -2,7 +2,6 @@
 
 import os
 import pickle
-from datetime import datetime
 
 import pandas as pd
 import torch
