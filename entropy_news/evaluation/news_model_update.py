@@ -2,7 +2,7 @@
 
 import torch
 from torch.utils.data import DataLoader, Dataset
-from entropy_calculator import EntropyCalculator
+from .entropy_calculator import EntropyCalculator
 
 class NewsModelUpdateCalculator:
     def __init__(self, old_model: torch.nn.Module, new_model: torch.nn.Module):
