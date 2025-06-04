@@ -11,7 +11,7 @@ This project computes the **entropy of financial news** using a **Recurrent Neur
 ```
 entropy_news/
 ├── data/
-│   ├── preprocessor.py        # Text cleaning, tokenization, vocabulary creation, GloVe loading
+│   ├── preprocessor.py        # Text cleaning, tokenization, vocabulary creation, GloVe loading, vocab save/load
 │   └── dataset.py             # PyTorch Dataset with automatic padding for sequence training
 │
 ├── model/
@@ -64,6 +64,21 @@ python main_forecast.py
 ```
 - Calculates `ENT`, `ENT_news`, `ENT_model` using new news (`data/news_new.txt`).
 - Exports results to `output/forecast_results.csv`.
+
+### 3. Reuse Vocabulary
+You can save the built vocabulary for later runs and reload it instead of
+recomputing every time:
+
+```python
+from entropy_news.data import TextPreprocessor
+
+preprocessor = TextPreprocessor()
+preprocessor.build_vocab(train_texts)
+preprocessor.save_vocab("output/vocab.json")
+
+# Later
+preprocessor.load_vocab("output/vocab.json")
+```
 
 ## 📈 Rolling Window Pipeline (Example)
 

@@ -3,6 +3,7 @@
 import re
 import os
 import logging
+import json
 from collections import Counter
 from typing import List, Dict, Tuple, Optional
 
@@ -67,3 +68,23 @@ class TextPreprocessor:
                 self.embedding_matrix[idx] = vector
 
         logger.info(f"Loaded GloVe embeddings with shape: {self.embedding_matrix.shape}")
+
+    def save_vocab(self, filepath: str) -> None:
+        """Persist the current vocabulary to ``filepath`` as JSON."""
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        data = {
+            "vocab_size": self.vocab_size,
+            "vocab": self.vocab,
+        }
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        logger.info("Saved vocabulary to %s", filepath)
+
+    def load_vocab(self, filepath: str) -> None:
+        """Load a vocabulary from ``filepath`` and rebuild lookup tables."""
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.vocab = {str(k): int(v) for k, v in data.get("vocab", {}).items()}
+        self.vocab_size = int(data.get("vocab_size", len(self.vocab)))
+        self.reverse_vocab = {idx: word for word, idx in self.vocab.items()}
+        logger.info("Loaded vocabulary from %s", filepath)
