@@ -1,4 +1,4 @@
-# entropy_news/main_train.py
+# entropy_news/main.py
 
 from utils.logger import setup_logger
 import torch
