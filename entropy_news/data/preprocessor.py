@@ -9,7 +9,6 @@ from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TextPreprocessor:
