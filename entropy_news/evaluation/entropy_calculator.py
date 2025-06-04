@@ -3,6 +3,8 @@
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+from ..utils import perplexity
+
 class EntropyCalculator:
     def __init__(self, model: torch.nn.Module):
         self.model = model
@@ -32,6 +34,11 @@ class EntropyCalculator:
 
         entropy = -total_log_prob / total_tokens if total_tokens > 0 else float('inf')
         return entropy
+
+    def compute_perplexity(self, dataset: Dataset, batch_size: int = 1) -> float:
+        """Return perplexity computed from cross-entropy."""
+        ent = self.compute_entropy(dataset, batch_size=batch_size)
+        return perplexity(ent)
 
 # Exemplo de uso:
 # calculator = EntropyCalculator(model)
