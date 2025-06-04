@@ -52,18 +52,42 @@ unzip glove.6B.zip
 ## 🚀 How to Use
 
 ### 1. Train the Model
+You can invoke the training script directly or via the provided console command:
 ```bash
-python entropy_news/main.py
+entropy-news-train
 ```
 - Trains the LSTM using training news (`data/news_train.txt`).
 - Saves the trained model in `output/model_final.pth`.
+  You can customise the inputs and hyperparameters:
+```bash
+entropy-news-train --train-data my_train.txt --epochs 10 --batch-size 64
+```
 
 ### 2. Forecast Entropies
 ```bash
-python main_forecast.py
+entropy-news-forecast
 ```
 - Calculates `ENT`, `ENT_news`, `ENT_model` using new news (`data/news_new.txt`).
 - Exports results to `output/forecast_results.csv`.
+  Example with options:
+```bash
+entropy-news-forecast --new-data other.txt --output-csv results.csv
+```
+
+### 3. Reuse Vocabulary
+You can save the built vocabulary for later runs and reload it instead of
+recomputing every time:
+
+```python
+from entropy_news.data import TextPreprocessor
+
+preprocessor = TextPreprocessor()
+preprocessor.build_vocab(train_texts)
+preprocessor.save_vocab("output/vocab.json")
+
+# Later
+preprocessor.load_vocab("output/vocab.json")
+```
 
 ### 3. Reuse Vocabulary
 You can save the built vocabulary for later runs and reload it instead of
@@ -91,6 +115,21 @@ To process multiple months:
 2. Store `ENT`, `ENT_news`, `ENT_model` month by month.
 
 This can be automated into a single pipeline.
+
+The ``Trainer`` class displays a progress bar via ``tqdm`` and supports optional
+early stopping when a validation set is provided:
+
+```python
+trainer.train(train_dataset, epochs=100, val_dataset=val_dataset,
+              early_stopping=True, patience=3)
+```
+
+You can also compute perplexity directly using ``EntropyCalculator``:
+
+```python
+calculator = EntropyCalculator(model)
+perplex = calculator.compute_perplexity(dataset)
+```
 
 ## 📝 Logging
 

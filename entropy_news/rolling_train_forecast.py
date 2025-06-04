@@ -2,12 +2,11 @@
 
 import os
 import pickle
-from datetime import datetime
 
 import pandas as pd
 import torch
 
-from entropy_news.utils import setup_logger
+from entropy_news.utils import setup_logger, load_texts
 from entropy_news.data import TextPreprocessor, NewsDataset
 from entropy_news.model import EntropyLSTM, Trainer
 from entropy_news.evaluation import NewsModelUpdateCalculator
@@ -90,9 +89,6 @@ def load_texts_for_month(month: str, base_data_dir: str):
     file_path = os.path.join(base_data_dir, f"news_{month}.txt")
     return load_texts(file_path)
 
-def load_texts(file_path: str):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip()]
     
 def load_texts_for_months(months: list, base_data_dir: str):
     texts = []

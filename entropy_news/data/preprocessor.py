@@ -9,7 +9,6 @@ from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TextPreprocessor:
@@ -49,29 +48,45 @@ class TextPreprocessor:
     def decode(self, ids: List[int]) -> str:
         return ' '.join([self.reverse_vocab.get(idx, '<UNK>') for idx in ids])
 
-    def load_glove_embeddings(self, glove_path: str) -> None:
+    def load_glove_embeddings(self, glove_path: str, embedding_dim: int | None = None) -> None:
         logger.info("Loading GloVe embeddings...")
-        embedding_dim = 100
         embeddings_index = {}
 
-        with open(glove_path, 'r', encoding='utf-8') as f:
+        with open(glove_path, "r", encoding="utf-8") as f:
+            first_line = f.readline()
+            parts = first_line.strip().split()
+            detected_dim = len(parts) - 1
+            if embedding_dim is None:
+                embedding_dim = detected_dim
+
+            word = parts[0]
+            vector = np.asarray(parts[1:], dtype="float32")[:embedding_dim]
+            embeddings_index[word] = vector
+
             for line in f:
                 values = line.strip().split()
                 word = values[0]
-                vector = np.asarray(values[1:], dtype='float32')
+                vector = np.asarray(values[1:], dtype="float32")[:embedding_dim]
                 embeddings_index[word] = vector
 
         self.embedding_matrix = np.random.normal(0, 1, (len(self.vocab), embedding_dim))
         for word, idx in self.vocab.items():
             vector = embeddings_index.get(word)
-            if vector is not None and isinstance(vector, np.ndarray):
+            if vector is not None and isinstance(vector, np.ndarray) and len(vector) == embedding_dim:
                 self.embedding_matrix[idx] = vector
 
-        logger.info(f"Loaded GloVe embeddings with shape: {self.embedding_matrix.shape}")
+        logger.info(
+            f"Loaded GloVe embeddings with shape: {self.embedding_matrix.shape}"
+        )
 
     def save_vocab(self, filepath: str) -> None:
-        """Persist the current vocabulary to ``filepath`` as JSON."""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        """Persist the current vocabulary to ``filepath`` as JSON.
+
+        Filenames without a directory component are allowed.
+        """
+        directory = os.path.dirname(filepath)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
         data = {
             "vocab_size": self.vocab_size,
             "vocab": self.vocab,
