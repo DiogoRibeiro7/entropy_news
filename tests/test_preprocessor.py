@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
 
+import pytest
+np = pytest.importorskip("numpy")
 from entropy_news.data.preprocessor import TextPreprocessor
-import numpy as np
 
 
 def test_save_and_load_vocab(tmp_path: Path):
