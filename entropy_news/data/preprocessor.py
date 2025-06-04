@@ -49,6 +49,14 @@ class TextPreprocessor:
         return ' '.join([self.reverse_vocab.get(idx, '<UNK>') for idx in ids])
 
     def load_glove_embeddings(self, glove_path: str, embedding_dim: int | None = None) -> None:
+        """Load pre-trained GloVe vectors and build ``embedding_matrix``.
+
+        The dimension is automatically inferred from the first line of the file
+        unless ``embedding_dim`` is provided.  In either case the resulting
+        ``embedding_matrix`` has shape ``(len(vocab), embedding_dim)`` and is
+        initialised with a normal distribution when no vector is available for a
+        given token.
+        """
         logger.info("Loading GloVe embeddings...")
         embeddings_index = {}
 
