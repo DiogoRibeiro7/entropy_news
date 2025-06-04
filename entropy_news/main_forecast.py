@@ -55,7 +55,7 @@ def main():
     model_new = model_new.to(model_new.device)
 
     # Pequeno fine-tuning para simular atualização
-    from model.trainer import Trainer
+    from entropy_news.model import Trainer
     trainer = Trainer(model_new)
     trainer.fine_tune(new_dataset, epochs=5, batch_size=32)
 
