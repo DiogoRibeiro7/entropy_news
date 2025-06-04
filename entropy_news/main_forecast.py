@@ -4,7 +4,7 @@ import torch
 import pickle
 import pandas as pd
 
-from entropy_news.utils import setup_logger
+from entropy_news.utils import setup_logger, load_texts
 from entropy_news.data import TextPreprocessor, NewsDataset
 from entropy_news.model import EntropyLSTM
 from entropy_news.evaluation import NewsModelUpdateCalculator
@@ -69,9 +69,6 @@ def main():
 
     logger.info(f"Resultados de forecast exportados para {output_csv_path}")
 
-def load_texts(file_path: str):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip()]
 
 if __name__ == "__main__":
     main()

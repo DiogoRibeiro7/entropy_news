@@ -3,7 +3,7 @@
 import torch
 import pickle
 
-from entropy_news.utils import setup_logger
+from entropy_news.utils import setup_logger, load_texts
 from entropy_news.data import TextPreprocessor, NewsDataset
 from entropy_news.model import EntropyLSTM, Trainer
 
@@ -52,9 +52,6 @@ def main():
 
     logger.info("Treinamento completo e modelo salvo.")
 
-def load_texts(file_path: str):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip()]
 
 if __name__ == "__main__":
     main()
