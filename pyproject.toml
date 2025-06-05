@@ -14,6 +14,9 @@ scikit-learn = "^1.3"
 tqdm = "^4.66"
 numpy = "^1.25"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+
 [tool.poetry.scripts]
 entropy-news-train = "entropy_news.main:main"
 entropy-news-forecast = "entropy_news.main_forecast:main"
