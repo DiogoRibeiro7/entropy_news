@@ -1,5 +1,3 @@
-# README.md for entropy_news
-
 # Entropy News
 
 Professional implementation of the methodology from the paper **"New News is Bad News"** (Cieslak et al., 2023).
