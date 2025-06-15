@@ -1,4 +1,3 @@
-import argparse
 pd = __import__("pytest").importorskip("pandas")
 from entropy_news.rolling_train_forecast import build_parser
 
