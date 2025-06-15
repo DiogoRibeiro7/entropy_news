@@ -6,7 +6,10 @@ from torch.utils.data import DataLoader, Dataset
 from ..utils import perplexity
 
 class EntropyCalculator:
+    """Compute cross-entropy and perplexity for a model."""
+
     def __init__(self, model: torch.nn.Module):
+        """Store reference to ``model`` to evaluate."""
         self.model = model
         self.device = model.device
 

@@ -11,7 +11,10 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 class Trainer:
+    """Utility class to train and fine-tune language models."""
+
     def __init__(self, model: nn.Module, learning_rate: float = 0.001):
+        """Initialise with ``model`` and Adam optimiser."""
         self.model = model
         self.device = model.device
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)

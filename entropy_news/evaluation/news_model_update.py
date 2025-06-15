@@ -5,7 +5,10 @@ from torch.utils.data import DataLoader, Dataset
 from .entropy_calculator import EntropyCalculator
 
 class NewsModelUpdateCalculator:
+    """Decompose entropy into news and model components."""
+
     def __init__(self, old_model: torch.nn.Module, new_model: torch.nn.Module):
+        """Store ``old_model`` and ``new_model`` for comparison."""
         self.old_model = old_model
         self.new_model = new_model
         self.device = new_model.device

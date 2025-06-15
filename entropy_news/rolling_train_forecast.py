@@ -48,52 +48,48 @@ def rolling_pipeline(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # Initialize preprocessor and vocab using the initial training window
-    train_texts = load_texts_for_months(months[:train_window_size], base_data_dir)
-    preprocessor = TextPreprocessor(vocab_size=vocab_size)
-    preprocessor.build_vocab(train_texts)
-
-    encoded = [preprocessor.encode(t) for t in train_texts]
-    train_dataset = NewsDataset(encoded, seq_len=seq_len)
-
-    # Initialize and train initial model
-    model = EntropyLSTM(
-        vocab_size=len(preprocessor.vocab),
-        embed_dim=embed_dim,
-        hidden_dim=hidden_dim
-    )
-    model = model.to(model.device)
-    trainer = Trainer(model, learning_rate=learning_rate)
-    trainer.train(train_dataset, epochs=train_epochs, batch_size=batch_size)
-
     results = []
 
     # Iterate over each month after the initial training window
-    for current_month in months[train_window_size:]:
+    for idx in range(train_window_size, len(months)):
+        current_month = months[idx]
         logger.info(f"Processing month: {current_month}")
+
+        train_months = months[idx - train_window_size : idx]
+        train_texts = load_texts_for_months(train_months, base_data_dir)
+        preprocessor = TextPreprocessor(vocab_size=vocab_size)
+        preprocessor.build_vocab(train_texts)
+        encoded_train = [preprocessor.encode(t) for t in train_texts]
+        train_dataset = NewsDataset(encoded_train, seq_len=seq_len)
+
+        model = EntropyLSTM(
+            vocab_size=len(preprocessor.vocab),
+            embed_dim=embed_dim,
+            hidden_dim=hidden_dim,
+        )
+        model = model.to(model.device)
+        trainer = Trainer(model, learning_rate=learning_rate)
+        trainer.train(train_dataset, epochs=train_epochs, batch_size=batch_size)
 
         # Load new month's data
         new_texts = load_texts_for_month(current_month, base_data_dir)
         encoded_new = [preprocessor.encode(t) for t in new_texts]
         new_dataset = NewsDataset(encoded_new, seq_len=seq_len)
 
-        # Clone old model for comparison
         model_old = EntropyLSTM(
             vocab_size=len(preprocessor.vocab),
             embed_dim=embed_dim,
-            hidden_dim=hidden_dim
+            hidden_dim=hidden_dim,
         )
         model_old.load_state_dict(model.state_dict())
         model_old = model_old.to(model_old.device)
 
-        # Fine-tune model with new data
         trainer = Trainer(model)
         trainer.fine_tune(new_dataset, epochs=fine_tune_epochs, batch_size=32)
 
-        # Compute ENT, ENT_news and ENT_model
         calculator = NewsModelUpdateCalculator(model_old, model)
         entropies = calculator.compute_entropies(new_dataset)
-        entropies['month'] = current_month
+        entropies["month"] = current_month
         results.append(entropies)
 
     # Save results
