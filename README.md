@@ -89,21 +89,6 @@ preprocessor.save_vocab("output/vocab.json")
 preprocessor.load_vocab("output/vocab.json")
 ```
 
-### 3. Reuse Vocabulary
-You can save the built vocabulary for later runs and reload it instead of
-recomputing every time:
-
-```python
-from entropy_news.data import TextPreprocessor
-
-preprocessor = TextPreprocessor()
-preprocessor.build_vocab(train_texts)
-preprocessor.save_vocab("output/vocab.json")
-
-# Later
-preprocessor.load_vocab("output/vocab.json")
-```
-
 ## 📈 Rolling Window Pipeline (Example)
 
 To process multiple months:
