@@ -12,7 +12,16 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 class TextPreprocessor:
+    """Text cleaning and vocabulary management helper."""
+
     def __init__(self, vocab_size: int = 10000):
+        """Initialise the preprocessor with ``vocab_size`` tokens.
+
+        Parameters
+        ----------
+        vocab_size : int, optional
+            Maximum number of words to keep, by default ``10000``.
+        """
         self.vocab_size = vocab_size
         self.vocab: Dict[str, int] = {}
         self.reverse_vocab: Dict[int, str] = {}

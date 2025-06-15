@@ -89,21 +89,6 @@ preprocessor.save_vocab("output/vocab.json")
 preprocessor.load_vocab("output/vocab.json")
 ```
 
-### 3. Reuse Vocabulary
-You can save the built vocabulary for later runs and reload it instead of
-recomputing every time:
-
-```python
-from entropy_news.data import TextPreprocessor
-
-preprocessor = TextPreprocessor()
-preprocessor.build_vocab(train_texts)
-preprocessor.save_vocab("output/vocab.json")
-
-# Later
-preprocessor.load_vocab("output/vocab.json")
-```
-
 ## 📈 Rolling Window Pipeline (Example)
 
 To process multiple months:
@@ -115,6 +100,12 @@ To process multiple months:
 2. Store `ENT`, `ENT_news`, `ENT_model` month by month.
 
 This can be automated into a single pipeline.
+
+Run it from the command line with ``entropy-news-rolling``:
+
+```bash
+entropy-news-rolling 2023-01 2023-02 2023-03 --base-data-dir data/ --output-dir output/
+```
 
 The ``Trainer`` class displays a progress bar via ``tqdm`` and supports optional
 early stopping when a validation set is provided:
