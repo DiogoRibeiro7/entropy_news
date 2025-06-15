@@ -1,6 +1,6 @@
 # Entropy News
 
-Professional implementation of the methodology from the paper **"New News is Bad News"** (Cieslak et al., 2023).
+Professional implementation of the methodology from the paper **"New News is Bad News"** (Paul Glasserman, Harry Mamaysky, and Jimmy Qin, 2023).
 
 This project computes the **entropy of financial news** using a **Recurrent Neural Network (LSTM)** and uses that signal to predict market returns.
 
@@ -140,4 +140,4 @@ Calling ``setup_logger`` multiple times with the same arguments is harmless but
 may incur a small overhead.
 
 ## 📚 Reference
-- Cieslak, L., Lussange, J., & Thesmar, D. (2023). *New News is Bad News: Information, Expectations, and Financial Markets*. [arXiv:2309.05560](https://arxiv.org/abs/2309.05560)
+- Paul Glasserman, Harry Mamaysky, and Jimmy Qin. (2023). *New News is Bad News: Information, Expectations, and Financial Markets*. [SSRN 4555832](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4555832)
