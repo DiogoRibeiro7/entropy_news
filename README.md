@@ -116,6 +116,12 @@ To process multiple months:
 
 This can be automated into a single pipeline.
 
+Run it from the command line with ``entropy-news-rolling``:
+
+```bash
+entropy-news-rolling 2023-01 2023-02 2023-03 --base-data-dir data/ --output-dir output/
+```
+
 The ``Trainer`` class displays a progress bar via ``tqdm`` and supports optional
 early stopping when a validation set is provided:
 
