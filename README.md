@@ -141,3 +141,10 @@ may incur a small overhead.
 
 ## 📚 Reference
 - Paul Glasserman, Harry Mamaysky, and Jimmy Qin. (2023). *New News is Bad News: Information, Expectations, and Financial Markets*. [SSRN 4555832](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4555832)
+
+## Author
+- **Diogo Ribeiro** (DiogoRibeiro7)
+- Affiliation: ESMAD - Instituto Politécnico do Porto
+- ORCID: [0009-0001-2022-7072](https://orcid.org/0009-0001-2022-7072)
+- Personal email: diogo.debastos.ribeiro@gmail.com
+- Professional email: dfr@esmad.ipp.pt

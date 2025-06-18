@@ -2,7 +2,7 @@
 name = "entropy-news"
 version = "0.1.0"
 description = "Entropy of Financial News using LSTM based on 'New News is Bad News' methodology."
-authors = ["Diogo Ribeiro <diogo_dj@hotmail.com>"]
+authors = ["Diogo Ribeiro (DiogoRibeiro7) <diogo.debastos.ribeiro@gmail.com>", "Diogo Ribeiro <dfr@esmad.ipp.pt>"]
 readme = "README.md"
 packages = [{ include = "entropy_news" }]
 
