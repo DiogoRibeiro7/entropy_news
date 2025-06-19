@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this package, please cite it as below."
+title: "Entropy News"
+version: "0.1.0"
+authors:
+  - family-names: Ribeiro
+    given-names: Diogo
+    orcid: https://orcid.org/0009-0001-2022-7072
+    affiliation: ESMAD - Instituto Politécnico do Porto
+    email: diogo.debastos.ribeiro@gmail.com
+  - family-names: Ribeiro
+    given-names: Diogo
+    orcid: https://orcid.org/0009-0001-2022-7072
+    affiliation: ESMAD - Instituto Politécnico do Porto
+    email: dfr@esmad.ipp.pt
