@@ -74,7 +74,17 @@ entropy-news-forecast --new-data other.txt --output-csv results.csv \
                       --fine-tune-epochs 8 --batch-size 2
 ```
 
-### 3. Reuse Vocabulary
+### 3. Evaluate a Saved Model
+```bash
+entropy-news-eval
+```
+- Computes the average entropy and perplexity on `data/news_new.txt`.
+- Optionally writes the values to ``output/metrics.csv``.
+  Example with options:
+```bash
+entropy-news-eval --data other.txt --batch-size 4 --output-csv metrics.csv
+```
+### 4. Reuse Vocabulary
 You can save the built vocabulary for later runs and reload it instead of
 recomputing every time:
 
