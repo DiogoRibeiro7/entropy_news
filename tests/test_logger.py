@@ -16,3 +16,11 @@ def test_setup_logger_no_duplicate_handlers(tmp_path: Path):
     logger2 = setup_logger("test_logger", str(log_file))
     assert logger2 is logger
     assert len(logger.handlers) == initial_handler_count
+
+
+def test_setup_logger_respects_level(tmp_path: Path) -> None:
+    """Ensure the returned logger uses the requested log level."""
+    log_file = tmp_path / "logs" / "level.log"
+    logger = setup_logger("level_logger", str(log_file), level=logging.DEBUG)
+
+    assert logger.level == logging.DEBUG

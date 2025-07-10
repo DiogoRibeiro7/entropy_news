@@ -5,12 +5,8 @@
 import argparse
 import os
 
-import pandas as pd
 
 from entropy_news.utils import load_texts, setup_logger
-from entropy_news.data import TextPreprocessor, NewsDataset
-from entropy_news.model import EntropyLSTM, Trainer
-from entropy_news.evaluation import NewsModelUpdateCalculator
 
 logger = setup_logger("train_logger", "logs/train.log")
 
@@ -37,6 +33,11 @@ def rolling_pipeline(
     train_window_size : int, optional
         Number of months used in the initial training window, by default ``6``.
     """
+    import pandas as pd
+    from entropy_news.data import TextPreprocessor, NewsDataset
+    from entropy_news.model import EntropyLSTM, Trainer
+    from entropy_news.evaluation import NewsModelUpdateCalculator
+
     # Hyperparameters
     vocab_size = 10000
     embed_dim = 100

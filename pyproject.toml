@@ -2,7 +2,8 @@
 name = "entropy-news"
 version = "0.1.0"
 description = "Entropy of Financial News using LSTM based on 'New News is Bad News' methodology."
-authors = ["Diogo Ribeiro (DiogoRibeiro7) <diogo.debastos.ribeiro@gmail.com>", "Diogo Ribeiro <dfr@esmad.ipp.pt>"]
+authors = ["Diogo Ribeiro (DiogoRibeiro7) <dfr@esmad.ipp.pt>"]
+license = "MIT"
 readme = "README.md"
 packages = [{ include = "entropy_news" }]
 
@@ -16,6 +17,7 @@ numpy = "^1.25"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
+pytest-cov = "^4.1"
 
 [tool.poetry.scripts]
 entropy-news-train = "entropy_news.main:main"

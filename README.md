@@ -47,6 +47,28 @@ wget http://nlp.stanford.edu/data/glove.6B.zip
 unzip glove.6B.zip
 ```
 
+## 📚 Data
+The training news files referenced in the examples are not distributed with this
+repository. Ensure you have permission to use any dataset you supply. The
+[GloVe embeddings](https://nlp.stanford.edu/projects/glove/) are available from
+the Stanford NLP Group and released under the
+[Public Domain Dedication and License](https://nlp.stanford.edu/data/).
+
+Example sources of open data include Kaggle's
+["Financial News Dataset"](https://www.kaggle.com/aaron7sun/stocknews). Download
+the archive by first accepting its license on Kaggle and then running:
+
+```bash
+kaggle datasets download -d aaron7sun/stocknews -p data/
+unzip data/stocknews.zip -d data/
+```
+
+After extracting, provide the file path via ``--train-data`` when running
+``entropy-news-train``.
+
+Any dataset you provide for training must be legally obtained and its license
+terms respected.
+
 ## 🚀 How to Use
 
 ### 1. Train the Model
@@ -149,6 +171,32 @@ logger = setup_logger("train_logger", "logs/train.log")
 Calling ``setup_logger`` multiple times with the same arguments is harmless but
 may incur a small overhead.
 
+## ✅ Testing
+The project includes a suite of unit tests that can be executed with ``pytest``.
+Several tests rely on ``torch`` and ``numpy``. If those packages are not
+installed, they will be skipped. Install them to run the full suite and gather
+coverage:
+
+```bash
+poetry install --with torch,numpy
+pytest --cov=entropy_news -q
+```
+Continuous integration runs the same command, ensuring coverage is tracked for
+every pull request. Coverage statistics are displayed in the GitHub Actions
+summary for convenient review.
+
+## 📦 Releasing
+This project is packaged with [Poetry](https://python-poetry.org/) and follows
+[Semantic Versioning](https://semver.org/).
+
+1. Bump the version number using ``poetry version <patch|minor|major>``.
+2. Build the distribution with ``poetry build``.
+3. Publish to PyPI via ``poetry publish`` (configure your credentials first).
+4. Create a Git tag for the new version and push it along with ``main``.
+5. A GitHub Actions workflow builds and uploads the package whenever a tag
+   matching ``v*`` is pushed. Ensure the ``PYPI_TOKEN`` secret is configured on
+   your repository.
+
 ## 📚 Reference
 - Paul Glasserman, Harry Mamaysky, and Jimmy Qin. (2023). *New News is Bad News: Information, Expectations, and Financial Markets*. [SSRN 4555832](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4555832)
 
@@ -156,5 +204,7 @@ may incur a small overhead.
 - **Diogo Ribeiro** (DiogoRibeiro7)
 - Affiliation: ESMAD - Instituto Politécnico do Porto
 - ORCID: [0009-0001-2022-7072](https://orcid.org/0009-0001-2022-7072)
-- Personal email: diogo.debastos.ribeiro@gmail.com
 - Professional email: dfr@esmad.ipp.pt
+
+## License
+This project is released under the MIT License. See [LICENSE](LICENSE) for details.
