@@ -2,12 +2,9 @@ cff-version: 1.2.0
 message: "If you use this package, please cite it as below."
 title: "Entropy News"
 version: "0.1.0"
+license: MIT
+url: https://github.com/DiogoRibeiro7/entropy_news
 authors:
-  - family-names: Ribeiro
-    given-names: Diogo
-    orcid: https://orcid.org/0009-0001-2022-7072
-    affiliation: ESMAD - Instituto Politécnico do Porto
-    email: diogo.debastos.ribeiro@gmail.com
   - family-names: Ribeiro
     given-names: Diogo
     orcid: https://orcid.org/0009-0001-2022-7072

@@ -62,7 +62,3 @@ class EntropyLSTM(nn.Module):
         output, _ = self.lstm(emb)
         logits = self.fc(output)
         return logits
-
-# Exemplo de uso:
-# model = EntropyLSTM(vocab_size=len(vocab), embed_dim=100, hidden_dim=16, embedding_matrix=preprocessor.embedding_matrix)
-# model = model.to(model.device)

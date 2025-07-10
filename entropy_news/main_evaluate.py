@@ -6,13 +6,8 @@ from __future__ import annotations
 import argparse
 import pickle
 
-import pandas as pd
-import torch
 
 from entropy_news.utils import setup_logger, load_texts
-from entropy_news.data import TextPreprocessor, NewsDataset
-from entropy_news.model import EntropyLSTM
-from entropy_news.evaluation import EntropyCalculator
 
 logger = setup_logger("eval_logger", "logs/eval.log")
 
@@ -63,6 +58,12 @@ def main(argv: list[str] | None = None) -> None:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    import pandas as pd
+    import torch
+    from entropy_news.data import TextPreprocessor, NewsDataset
+    from entropy_news.model import EntropyLSTM
+    from entropy_news.evaluation import EntropyCalculator
 
     # Load vocabulary
     with open(args.vocab_path, "rb") as f:

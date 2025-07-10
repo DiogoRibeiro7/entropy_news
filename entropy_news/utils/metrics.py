@@ -3,12 +3,15 @@
 import math
 
 def perplexity(entropy: float) -> float:
-    """Computes perplexity from cross-entropy."""
-    if math.isinf(entropy):
-        return float('inf')
-    return math.exp(entropy)
+    """Return the perplexity associated with a cross-entropy value.
 
-# Exemplo de uso:
-# entropy_value = 3.0
-# perplexity_value = perplexity(entropy_value)
-# print(f"Perplexity: {perplexity_value:.2f}")
+    Args:
+        entropy: Cross-entropy value.
+
+    Returns:
+        float: ``math.inf`` if ``entropy`` is infinite, otherwise ``e`` raised
+        to ``entropy``.
+    """
+    if math.isinf(entropy):
+        return float("inf")
+    return math.exp(entropy)

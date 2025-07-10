@@ -3,14 +3,20 @@
 import logging
 import os
 
-def setup_logger(name: str, log_file: str, level=logging.INFO):
-    """Return a configured ``logging.Logger``.
 
-    The function creates the directory for ``log_file`` if needed and adds a
-    ``FileHandler`` and ``StreamHandler`` to ``name``. If either handler already
-    exists (e.g. when ``setup_logger`` is called multiple times), it will not be
-    added again. This prevents duplicated messages when scripts run the logger
-    setup more than once.
+def setup_logger(name: str, log_file: str, level: int = logging.INFO) -> logging.Logger:
+    """Create or retrieve a logger that writes to ``log_file``.
+
+    This helper ensures the log directory exists and avoids adding duplicate
+    handlers when invoked multiple times.
+
+    Args:
+        name: Identifier for the logger.
+        log_file: Path to the desired log file.
+        level: Logging level applied to the logger.
+
+    Returns:
+        The configured logger instance.
     """
 
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
