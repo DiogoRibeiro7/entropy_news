@@ -1,6 +1,6 @@
-import pytest
+"""Tests for the evaluation CLI parser."""
 
-pytest.importorskip("torch")
+import pytest
 
 from entropy_news.main_evaluate import build_parser
 

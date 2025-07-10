@@ -1,4 +1,7 @@
-pd = __import__("pytest").importorskip("pandas")
+"""Tests for the monthly rolling forecast CLI parser."""
+
+import pytest
+
 from entropy_news.rolling_train_forecast import build_parser
 
 

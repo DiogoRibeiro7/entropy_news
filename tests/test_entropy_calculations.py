@@ -48,3 +48,28 @@ def test_news_model_update_keys_and_values():
     assert math.isclose(result["ENT_news"], math.log(5), rel_tol=1e-5)
     assert result["ENT"] < 1e-6
     assert math.isclose(result["ENT_model"], result["ENT"] - result["ENT_news"], rel_tol=1e-6)
+
+
+def test_compute_perplexity_uniform() -> None:
+    """Perplexity of a uniform model equals its vocab size."""
+
+    dataset = NewsDataset([[1, 2, 3]], seq_len=2)
+    model = ConstantModel(vocab_size=4)
+    calc = EntropyCalculator(model)
+
+    ppl = calc.compute_perplexity(dataset, batch_size=1)
+    assert math.isclose(ppl, 4.0, rel_tol=1e-5)
+
+
+def test_entropy_empty_dataset_returns_inf() -> None:
+    """Entropy and perplexity are infinite on an empty dataset."""
+
+    dataset = NewsDataset([], seq_len=2)
+    model = ConstantModel(vocab_size=5)
+    calc = EntropyCalculator(model)
+
+    ent = calc.compute_entropy(dataset)
+    ppl = calc.compute_perplexity(dataset)
+
+    assert math.isinf(ent)
+    assert math.isinf(ppl)

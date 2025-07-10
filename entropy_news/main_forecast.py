@@ -1,20 +1,20 @@
 # entropy_news/main_forecast.py
 
-import torch
 import pickle
 import argparse
-import pandas as pd
 
 from entropy_news.utils import setup_logger, load_texts
-from entropy_news.data import TextPreprocessor, NewsDataset
-from entropy_news.model import EntropyLSTM
-from entropy_news.evaluation import NewsModelUpdateCalculator
+
 
 logger = setup_logger("train_logger", "logs/train.log")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Create CLI parser for the forecasting script."""
+    """Create CLI parser for the forecasting script.
+
+    Returns:
+        argparse.ArgumentParser: Configured parser instance.
+    """
     parser = argparse.ArgumentParser(description="Forecast entropies from new data")
     parser.add_argument("--vocab-path", default="output/vocab.pkl", help="Path to saved vocabulary")
     parser.add_argument("--model-path", default="output/model_final.pth", help="Path to trained model")
@@ -36,14 +36,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     """Entry point for the forecasting script."""
+    import torch
+    import pandas as pd
+    from entropy_news.data import TextPreprocessor, NewsDataset
+    from entropy_news.model import EntropyLSTM, Trainer
+    from entropy_news.evaluation import NewsModelUpdateCalculator
+
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Carregar vocabulário
+    # Load vocabulary
     with open(args.vocab_path, "rb") as f:
         vocab = pickle.load(f)
 
-    # Preprocessar novos dados
+    # Preprocess new data
     preprocessor = TextPreprocessor()
     preprocessor.vocab = vocab
 
@@ -51,7 +57,7 @@ def main(argv: list[str] | None = None) -> None:
     encoded = [preprocessor.encode(t) for t in texts]
     new_dataset = NewsDataset(encoded, seq_len=args.seq_len)
 
-    # Carregar modelo antigo
+    # Load previous model
     model_old = EntropyLSTM(
         vocab_size=len(vocab),
         embed_dim=args.embed_dim,
@@ -62,7 +68,7 @@ def main(argv: list[str] | None = None) -> None:
     model_old.load_state_dict(torch.load(args.model_path))
     model_old = model_old.to(model_old.device)
 
-    # Treinar novo modelo com novos dados
+    # Train a new model with the latest data
     model_new = EntropyLSTM(
         vocab_size=len(vocab),
         embed_dim=args.embed_dim,
@@ -73,20 +79,20 @@ def main(argv: list[str] | None = None) -> None:
     model_new.load_state_dict(torch.load(args.model_path))
     model_new = model_new.to(model_new.device)
 
-    # Pequeno fine-tuning para simular atualização
+    # Brief fine-tuning to simulate a model update
     from entropy_news.model import Trainer
     trainer = Trainer(model_new)
     trainer.fine_tune(new_dataset, epochs=args.fine_tune_epochs, batch_size=args.batch_size)
 
-    # Calcular ENT, ENT_news e ENT_model
+    # Calculate ENT, ENT_news and ENT_model
     calculator = NewsModelUpdateCalculator(model_old, model_new)
     entropies = calculator.compute_entropies(new_dataset)
 
-    # Exportar para CSV
+    # Export to CSV
     df = pd.DataFrame([entropies])
     df.to_csv(args.output_csv, index=False)
 
-    logger.info(f"Resultados de forecast exportados para {args.output_csv}")
+    logger.info(f"Forecast results exported to {args.output_csv}")
 
 
 if __name__ == "__main__":

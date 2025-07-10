@@ -29,6 +29,17 @@ class Trainer:
         early_stopping: bool = False,
         patience: int = 5,
     ) -> None:
+        """Train ``self.model`` using ``dataset``.
+
+        Args:
+            dataset: Dataset of token sequences.
+            epochs: Number of training epochs.
+            batch_size: Samples per training batch.
+            val_dataset: Optional dataset for validation loss calculation.
+            early_stopping: Whether to stop when validation loss stops
+                improving.
+            patience: Epochs to wait for improvement before stopping.
+        """
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         val_loader = (
             DataLoader(val_dataset, batch_size=batch_size) if val_dataset else None
@@ -79,11 +90,25 @@ class Trainer:
                     break
 
     def fine_tune(self, new_dataset: Dataset, epochs: int = 50, batch_size: int = 128) -> None:
+        """Continue training ``self.model`` on ``new_dataset``.
+
+        Args:
+            new_dataset: Additional data used for fine-tuning.
+            epochs: Number of fine-tuning epochs.
+            batch_size: Samples per batch.
+        """
         logger.info("Fine-tuning model on new data...")
         self.train(new_dataset, epochs=epochs, batch_size=batch_size)
 
     def evaluate(self, loader: DataLoader) -> float:
-        """Compute average loss on ``loader`` without updating gradients."""
+        """Compute average loss on ``loader`` without updating gradients.
+
+        Args:
+            loader: Data loader used for evaluation.
+
+        Returns:
+            Average loss across all batches.
+        """
         self.model.eval()
         total_loss = 0.0
         with torch.no_grad():
@@ -95,8 +120,3 @@ class Trainer:
                 total_loss += loss.item()
         self.model.train()
         return total_loss / len(loader)
-
-# Exemplo de uso:
-# trainer = Trainer(model)
-# trainer.train(dataset)
-# trainer.fine_tune(new_dataset)
