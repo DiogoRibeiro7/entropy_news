@@ -6,27 +6,22 @@ from torch.utils.data import DataLoader, Dataset
 from ..utils import perplexity
 
 class EntropyCalculator:
-    """Compute cross-entropy and perplexity for a model."""
+    """Compute cross-entropy and perplexity for a language model."""
 
     def __init__(self, model: torch.nn.Module):
-        """Store reference to ``model`` to evaluate."""
+        """Initialise the calculator with a model."""
         self.model = model
         self.device = model.device
 
     def compute_entropy(self, dataset: Dataset, batch_size: int = 1) -> float:
-        """Return cross-entropy of ``model`` on ``dataset``.
+        """Calculate the average cross-entropy on ``dataset``.
 
-        Parameters
-        ----------
-        dataset : Dataset
-            Dataset yielding input and target token sequences.
-        batch_size : int, optional
-            Size of each evaluation batch, by default ``1``.
+        Args:
+            dataset: Dataset yielding input and target token sequences.
+            batch_size: Number of samples per evaluation batch.
 
-        Returns
-        -------
-        float
-            Average token-wise cross-entropy ignoring padding tokens.
+        Returns:
+            Average token-wise cross-entropy, ignoring padding tokens.
         """
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         self.model.eval()
@@ -53,10 +48,14 @@ class EntropyCalculator:
         return entropy
 
     def compute_perplexity(self, dataset: Dataset, batch_size: int = 1) -> float:
-        """Return perplexity computed from cross-entropy."""
+        """Compute perplexity from cross-entropy on ``dataset``.
+
+        Args:
+            dataset: Dataset for evaluation.
+            batch_size: Number of samples per evaluation batch.
+
+        Returns:
+            Perplexity value.
+        """
         ent = self.compute_entropy(dataset, batch_size=batch_size)
         return perplexity(ent)
-
-# Exemplo de uso:
-# calculator = EntropyCalculator(model)
-# entropy_value = calculator.compute_entropy(dataset)

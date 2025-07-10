@@ -7,3 +7,10 @@ def test_perplexity_basic():
 
 def test_perplexity_inf():
     assert math.isinf(perplexity(float('inf')))
+
+
+def test_perplexity_negative_entropy() -> None:
+    """Perplexity should handle negative cross-entropy values."""
+
+    val = perplexity(-math.log(2))
+    assert math.isclose(val, 0.5)

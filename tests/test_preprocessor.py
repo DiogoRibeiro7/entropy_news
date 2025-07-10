@@ -46,3 +46,24 @@ def test_load_glove_embeddings_override_dim(tmp_path: Path):
 
     assert pre.embedding_matrix.shape == (len(pre.vocab), 2)
     np.testing.assert_array_almost_equal(pre.embedding_matrix[2], [0.1, 0.2])
+
+def test_clean_text_and_tokenize() -> None:
+    """Cleaning removes punctuation and lowers case."""
+
+    pre = TextPreprocessor()
+    text = "Hello, WORLD!!"
+    cleaned = pre.clean_text(text)
+    assert cleaned == "hello world"
+    assert pre.tokenize(cleaned) == ["hello", "world"]
+
+
+def test_encode_decode_roundtrip() -> None:
+    """Encoding then decoding should yield the original text."""
+
+    pre = TextPreprocessor(vocab_size=5)
+    texts = ["foo bar", "bar baz"]
+    pre.build_vocab(texts)
+
+    encoded = pre.encode("foo bar")
+    decoded = pre.decode(encoded)
+    assert decoded == "foo bar"
