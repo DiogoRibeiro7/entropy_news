@@ -2,17 +2,18 @@
 
 import pickle
 import argparse
+import logging
 
 from entropy_news.utils import setup_logger, load_texts
 
-logger = setup_logger("train_logger", "logs/train.log")
+logger = logging.getLogger("train_logger")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Create the CLI argument parser with defaults matching the old behavior.
+    """Create the CLI argument parser.
 
     Returns:
-        argparse.ArgumentParser: Configured parser object.
+        Configured ``argparse.ArgumentParser`` instance.
     """
     parser = argparse.ArgumentParser(description="Train the entropy LSTM model")
     parser.add_argument(
@@ -40,17 +41,29 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--vocab-out", default="output/vocab.pkl", help="Where to store the vocabulary"
     )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional path to a log file; if omitted only console logging is used",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Entry point for the training script."""
+    """Run the model training workflow.
+
+    Args:
+        argv: Optional sequence of command-line arguments.
+    """
     import torch
     from entropy_news.data import TextPreprocessor, NewsDataset
     from entropy_news.model import EntropyLSTM, Trainer
 
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    global logger
+    logger = setup_logger("train_logger", args.log_file)
 
     # Load training data
     texts = load_texts(args.train_data)

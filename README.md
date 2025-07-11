@@ -163,7 +163,7 @@ process and reuse the returned logger throughout the script:
 ```python
 from entropy_news.utils import setup_logger
 
-logger = setup_logger("train_logger", "logs/train.log")
+logger = setup_logger("train_logger", "logs/train.log")  # or ``None`` to disable file logging
 
 # reuse ``logger`` across modules
 ```

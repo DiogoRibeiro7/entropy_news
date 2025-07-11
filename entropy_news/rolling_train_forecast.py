@@ -1,14 +1,138 @@
 # entropy_news/rolling_train_forecast.py
+from __future__ import annotations
 
 """Rolling window pipeline utilities."""
 
 import argparse
 import os
-
+import logging
+from typing import TYPE_CHECKING
 
 from entropy_news.utils import load_texts, setup_logger
 
-logger = setup_logger("train_logger", "logs/train.log")
+if TYPE_CHECKING:  # pragma: no cover - only for type checkers
+    from entropy_news.data import NewsDataset, TextPreprocessor
+    from entropy_news.evaluation import NewsModelUpdateCalculator
+    from entropy_news.model import EntropyLSTM
+from entropy_news.utils import load_texts, setup_logger
+
+logger = logging.getLogger("train_logger")
+
+
+def prepare_training_set(
+    months: list[str], base_data_dir: str, seq_len: int, vocab_size: int
+) -> tuple[NewsDataset, TextPreprocessor]:
+    """Create a dataset and preprocessor from historical months.
+
+    Args:
+        months: Ordered list of months used for training.
+        base_data_dir: Directory containing ``news_<month>.txt`` files.
+        seq_len: Maximum sequence length for the dataset.
+        vocab_size: Number of words to keep in the vocabulary.
+
+    Returns:
+        Tuple with the prepared dataset and the fitted preprocessor.
+    """
+
+    from entropy_news.data import NewsDataset, TextPreprocessor
+
+    texts = load_texts_for_months(months, base_data_dir)
+    preprocessor = TextPreprocessor(vocab_size=vocab_size)
+    preprocessor.build_vocab(texts)
+    encoded = [preprocessor.encode(t) for t in texts]
+    dataset = NewsDataset(encoded, seq_len=seq_len)
+    # Return both the processed dataset and the fitted preprocessor
+    return dataset, preprocessor
+
+
+def train_model(
+    dataset: NewsDataset,
+    vocab_size: int,
+    embed_dim: int,
+    hidden_dim: int,
+    learning_rate: float,
+    epochs: int,
+    batch_size: int,
+) -> EntropyLSTM:
+    """Train an ``EntropyLSTM`` model.
+
+    Args:
+        dataset: Training dataset.
+        vocab_size: Vocabulary size for the embedding layer.
+        embed_dim: Dimension of the embeddings.
+        hidden_dim: Hidden state dimension of the LSTM.
+        learning_rate: Optimiser learning rate.
+        epochs: Number of training epochs.
+        batch_size: Samples per batch.
+
+    Returns:
+        The trained ``EntropyLSTM`` instance.
+    """
+
+    from entropy_news.model import EntropyLSTM, Trainer
+
+    # Instantiate a fresh model for this training window
+    model = EntropyLSTM(
+        vocab_size=vocab_size,
+        embed_dim=embed_dim,
+        hidden_dim=hidden_dim,
+    )
+    model = model.to(model.device)
+    trainer = Trainer(model, learning_rate=learning_rate)
+    trainer.train(dataset, epochs=epochs, batch_size=batch_size)
+    # Trained model ready for evaluation
+    return model
+
+
+def update_with_new_month(
+    model: EntropyLSTM,
+    preprocessor: TextPreprocessor,
+    new_texts: list[str],
+    seq_len: int,
+    embed_dim: int,
+    hidden_dim: int,
+    fine_tune_epochs: int,
+    learning_rate: float,
+) -> dict:
+    """Fine-tune ``model`` on new data and compute entropies.
+
+    Args:
+        model: Base model to be updated.
+        preprocessor: Preprocessor fitted on the training window.
+        new_texts: List of raw news strings for the new month.
+        seq_len: Sequence length for the fine-tuning dataset.
+        embed_dim: Embedding dimension of the models.
+        hidden_dim: Hidden state dimension of the models.
+        fine_tune_epochs: Number of fine-tuning epochs.
+        learning_rate: Optimiser learning rate.
+
+    Returns:
+        Entropy metrics for the updated model.
+    """
+
+    from entropy_news.data import NewsDataset
+    from entropy_news.evaluation import NewsModelUpdateCalculator
+    from entropy_news.model import EntropyLSTM, Trainer
+
+    encoded_new = [preprocessor.encode(t) for t in new_texts]
+    # Dataset representing the new month's articles
+    new_dataset = NewsDataset(encoded_new, seq_len=seq_len)
+
+    # Clone current parameters before fine-tuning
+    model_old = EntropyLSTM(
+        vocab_size=len(preprocessor.vocab),
+        embed_dim=embed_dim,
+        hidden_dim=hidden_dim,
+    )
+    model_old.load_state_dict(model.state_dict())
+    model_old = model_old.to(model_old.device)
+
+    trainer = Trainer(model, learning_rate=learning_rate)
+    trainer.fine_tune(new_dataset, epochs=fine_tune_epochs, batch_size=32)
+
+    calculator = NewsModelUpdateCalculator(model_old, model)
+    # Compare old and updated models on the new data
+    return calculator.compute_entropies(new_dataset)
 
 
 def rolling_pipeline(
@@ -20,23 +144,18 @@ def rolling_pipeline(
 ):
     """Run a rolling training and forecasting pipeline.
 
-    Parameters
-    ----------
-    months : list[str]
-        Ordered list of month identifiers used to locate input files.
-    base_data_dir : str
-        Directory containing ``news_<month>.txt`` files.
-    output_dir : str
-        Directory in which the results CSV is written.
-    seq_len : int, optional
-        Token sequence length for the dataset, by default ``100``.
-    train_window_size : int, optional
-        Number of months used in the initial training window, by default ``6``.
+    Args:
+        months: Sequence of months in ``YYYY-MM`` format.
+        base_data_dir: Directory containing ``news_<month>.txt`` files.
+        output_dir: Directory where the CSV results are written.
+        seq_len: Sequence length used when constructing datasets.
+        train_window_size: Number of months used for each training window.
+
+    This function trains a fresh model for each window of ``train_window_size``
+    months, evaluates it on the following month and appends the entropies to
+    ``rolling_forecast_results.csv``.
     """
     import pandas as pd
-    from entropy_news.data import TextPreprocessor, NewsDataset
-    from entropy_news.model import EntropyLSTM, Trainer
-    from entropy_news.evaluation import NewsModelUpdateCalculator
 
     # Hyperparameters
     vocab_size = 10000
@@ -57,75 +176,112 @@ def rolling_pipeline(
         logger.info(f"Processing month: {current_month}")
 
         train_months = months[idx - train_window_size : idx]
-        train_texts = load_texts_for_months(train_months, base_data_dir)
-        preprocessor = TextPreprocessor(vocab_size=vocab_size)
-        preprocessor.build_vocab(train_texts)
-        encoded_train = [preprocessor.encode(t) for t in train_texts]
-        train_dataset = NewsDataset(encoded_train, seq_len=seq_len)
+        train_dataset, preprocessor = prepare_training_set(
+            train_months, base_data_dir, seq_len, vocab_size
+        )
 
-        model = EntropyLSTM(
+        model = train_model(
+            train_dataset,
             vocab_size=len(preprocessor.vocab),
             embed_dim=embed_dim,
             hidden_dim=hidden_dim,
+            learning_rate=learning_rate,
+            epochs=train_epochs,
+            batch_size=batch_size,
         )
-        model = model.to(model.device)
-        trainer = Trainer(model, learning_rate=learning_rate)
-        trainer.train(train_dataset, epochs=train_epochs, batch_size=batch_size)
 
         # Load new month's data
         new_texts = load_texts_for_month(current_month, base_data_dir)
-        encoded_new = [preprocessor.encode(t) for t in new_texts]
-        new_dataset = NewsDataset(encoded_new, seq_len=seq_len)
-
-        model_old = EntropyLSTM(
-            vocab_size=len(preprocessor.vocab),
+        entropies = update_with_new_month(
+            model,
+            preprocessor,
+            new_texts,
+            seq_len=seq_len,
             embed_dim=embed_dim,
             hidden_dim=hidden_dim,
+            fine_tune_epochs=fine_tune_epochs,
+            learning_rate=learning_rate,
         )
-        model_old.load_state_dict(model.state_dict())
-        model_old = model_old.to(model_old.device)
-
-        trainer = Trainer(model)
-        trainer.fine_tune(new_dataset, epochs=fine_tune_epochs, batch_size=32)
-
-        calculator = NewsModelUpdateCalculator(model_old, model)
-        entropies = calculator.compute_entropies(new_dataset)
         entropies["month"] = current_month
         results.append(entropies)
 
     # Save results
     df = pd.DataFrame(results)
     df.to_csv(os.path.join(output_dir, "rolling_forecast_results.csv"), index=False)
-    logger.info(f"Rolling forecast results saved to {output_dir}/rolling_forecast_results.csv")
+    logger.info(
+        f"Rolling forecast results saved to {output_dir}/rolling_forecast_results.csv"
+    )
 
 def load_texts_for_month(month: str, base_data_dir: str) -> list[str]:
-    """Return texts for ``month`` loaded from ``base_data_dir``."""
+    """Load texts for a single month.
+
+    Args:
+        month: Target month in ``YYYY-MM`` format.
+        base_data_dir: Directory containing ``news_<month>.txt`` files.
+
+    Returns:
+        List of news strings. Missing files yield an empty list.
+    """
+
     file_path = os.path.join(base_data_dir, f"news_{month}.txt")
-    return load_texts(file_path)
+    if not os.path.exists(file_path):
+        logger.warning("Monthly file missing: %s", file_path)
+        return []
+
+    try:
+        # Delegate actual reading to ``utils.load_texts``
+        return load_texts(file_path)
+    except OSError as exc:  # pragma: no cover - unlikely to occur in tests
+        logger.error("Failed to read %s: %s", file_path, exc)
+        raise
 
     
 def load_texts_for_months(months: list[str], base_data_dir: str) -> list[str]:
-    """Return concatenated texts for ``months`` from ``base_data_dir``."""
+    """Load and combine texts from multiple months.
+
+    Args:
+        months: Sequence of months in ``YYYY-MM`` format.
+        base_data_dir: Directory containing the monthly files.
+
+    Returns:
+        Concatenated list of all texts.
+    """
     texts: list[str] = []
     for month in months:
         texts += load_texts_for_month(month, base_data_dir)
     return texts
 
 def build_parser() -> argparse.ArgumentParser:
-    """Return argument parser for the rolling pipeline CLI."""
+    """Create the CLI argument parser.
+
+    Returns:
+        Configured ``argparse.ArgumentParser`` instance.
+    """
     parser = argparse.ArgumentParser(description="Run rolling entropy forecasting")
     parser.add_argument("months", nargs="+", help="Ordered list of months to process")
     parser.add_argument("--base-data-dir", default="data/", help="Directory with monthly files")
     parser.add_argument("--output-dir", default="output/", help="Directory for results")
     parser.add_argument("--seq-len", type=int, default=100)
     parser.add_argument("--train-window-size", type=int, default=6)
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional path to a log file; if omitted only console logging is used",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Entry point for the ``entropy-news-rolling`` command."""
+    """Execute the rolling forecast pipeline from the command line.
+
+    Args:
+        argv: Optional sequence of command-line arguments.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    global logger
+    logger = setup_logger("train_logger", args.log_file)
     rolling_pipeline(
         months=args.months,
         base_data_dir=args.base_data_dir,

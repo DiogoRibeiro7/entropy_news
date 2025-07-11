@@ -47,6 +47,30 @@ def test_load_glove_embeddings_override_dim(tmp_path: Path):
     assert pre.embedding_matrix.shape == (len(pre.vocab), 2)
     np.testing.assert_array_almost_equal(pre.embedding_matrix[2], [0.1, 0.2])
 
+
+def test_load_glove_embeddings_missing_file(tmp_path: Path) -> None:
+    """A clear ``FileNotFoundError`` should be raised for absent files."""
+
+    pre = TextPreprocessor()
+    missing = tmp_path / "no.txt"
+
+    with pytest.raises(FileNotFoundError):
+        pre.load_glove_embeddings(missing)
+
+
+def test_load_glove_embeddings_skips_bad_lines(tmp_path: Path) -> None:
+    """Malformed lines are skipped without raising errors."""
+
+    glove_file = tmp_path / "glove.txt"
+    glove_file.write_text("word1 0.1 0.2\nbad_line\nword2 0.3 0.4\n")
+
+    pre = TextPreprocessor(vocab_size=10)
+    pre.vocab = {"<PAD>": 0, "<UNK>": 1, "word1": 2, "word2": 3}
+    pre.reverse_vocab = {idx: word for word, idx in pre.vocab.items()}
+    pre.load_glove_embeddings(glove_file, embedding_dim=2)
+
+    assert pre.embedding_matrix.shape == (len(pre.vocab), 2)
+
 def test_clean_text_and_tokenize() -> None:
     """Cleaning removes punctuation and lowers case."""
 

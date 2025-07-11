@@ -28,3 +28,13 @@ def test_load_texts_for_months(tmp_path) -> None:
     result = load_texts_for_months(["2023-01", "2023-02"], str(base))
 
     assert result == ["a", "b", "c"]
+
+
+def test_load_texts_for_missing_month(tmp_path, caplog) -> None:
+    """Missing files should yield an empty list and log a warning."""
+
+    with caplog.at_level("WARNING"):
+        result = load_texts_for_month("2023-03", str(tmp_path))
+
+    assert result == []
+    assert any("missing" in rec.message for rec in caplog.records)

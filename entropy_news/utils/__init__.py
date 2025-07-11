@@ -1,3 +1,5 @@
+"""Utility helpers for logging and file I/O."""
+
 from .logger import setup_logger
 from .metrics import perplexity
 from .io import load_texts, save_texts
