@@ -1,4 +1,5 @@
 import math
+import logging
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -35,3 +36,29 @@ def test_train_updates_weights() -> None:
     trainer.train(dataset, epochs=1, batch_size=1)
 
     assert not torch.allclose(model.embed.weight, initial_weight)
+
+
+def test_early_stopping_triggers(caplog, monkeypatch) -> None:
+    """Trainer should log when early stopping criteria are met."""
+
+    dataset = NewsDataset([[1, 2, 3, 4]] * 3, seq_len=3)
+    val_dataset = NewsDataset([[1, 2, 3, 4]] * 3, seq_len=3)
+    model = _zero_lstm(vocab_size=5)
+    trainer = Trainer(model)
+
+    def const_eval(self, loader):
+        return 1.0
+
+    monkeypatch.setattr(Trainer, "evaluate", const_eval)
+
+    with caplog.at_level(logging.INFO):
+        trainer.train(
+            dataset,
+            epochs=5,
+            batch_size=1,
+            val_dataset=val_dataset,
+            early_stopping=True,
+            patience=1,
+        )
+
+    assert any("Early stopping" in rec.message for rec in caplog.records)

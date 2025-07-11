@@ -18,12 +18,15 @@ def test_build_parser_parses_args() -> None:
         "80",
         "--train-window-size",
         "3",
+        "--log-file",
+        "out.log",
     ])
     assert args.months == ["2023-01", "2023-02"]
     assert args.base_data_dir == "foo"
     assert args.output_dir == "bar"
     assert args.seq_len == 80
     assert args.train_window_size == 3
+    assert args.log_file == "out.log"
 
 
 def test_build_parser_defaults() -> None:
@@ -34,3 +37,4 @@ def test_build_parser_defaults() -> None:
     assert args.output_dir == "output/"
     assert args.seq_len == 100
     assert args.train_window_size == 6
+    assert args.log_file is None

@@ -1,3 +1,5 @@
+"""Evaluation utilities for entropy calculations."""
+
 from .entropy_calculator import EntropyCalculator
 from .news_model_update import NewsModelUpdateCalculator
 

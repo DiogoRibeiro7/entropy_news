@@ -24,3 +24,11 @@ def test_setup_logger_respects_level(tmp_path: Path) -> None:
     logger = setup_logger("level_logger", str(log_file), level=logging.DEBUG)
 
     assert logger.level == logging.DEBUG
+
+
+def test_setup_logger_without_file() -> None:
+    """No file handler should be added when ``log_file`` is ``None``."""
+
+    logger = setup_logger("no_file_logger", None)
+
+    assert not any(isinstance(h, logging.FileHandler) for h in logger.handlers)

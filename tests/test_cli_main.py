@@ -15,6 +15,8 @@ def test_build_train_parser_parses_args() -> None:
         "foo.txt",
         "--glove-path",
         "bar.txt",
+        "--log-file",
+        "my.log",
         "--epochs",
         "10",
         "--batch-size",
@@ -24,6 +26,7 @@ def test_build_train_parser_parses_args() -> None:
     assert args.glove_path == "bar.txt"
     assert args.epochs == 10
     assert args.batch_size == 16
+    assert args.log_file == "my.log"
 
 
 def test_build_train_parser_defaults() -> None:
@@ -35,6 +38,7 @@ def test_build_train_parser_defaults() -> None:
     assert args.epochs == 50
     assert args.seq_len == 100
     assert args.dropout == 0.1
+    assert args.log_file is None
 
 
 def test_build_forecast_parser_defaults() -> None:
@@ -44,3 +48,4 @@ def test_build_forecast_parser_defaults() -> None:
     args = parser.parse_args([])
     assert args.seq_len == 100
     assert args.batch_size == 1
+    assert args.log_file is None

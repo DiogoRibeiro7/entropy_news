@@ -2,18 +2,20 @@
 
 import pickle
 import argparse
+import logging
+import os
 
 from entropy_news.utils import setup_logger, load_texts
 
 
-logger = setup_logger("train_logger", "logs/train.log")
+logger = logging.getLogger("train_logger")
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Create CLI parser for the forecasting script.
 
     Returns:
-        argparse.ArgumentParser: Configured parser instance.
+        Configured ``argparse.ArgumentParser`` instance.
     """
     parser = argparse.ArgumentParser(description="Forecast entropies from new data")
     parser.add_argument("--vocab-path", default="output/vocab.pkl", help="Path to saved vocabulary")
@@ -32,10 +34,19 @@ def build_parser() -> argparse.ArgumentParser:
         default=5,
         help="Epochs used when fine-tuning with new data",
     )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional path to a log file; if omitted only console logging is used",
+    )
     return parser
 
 def main(argv: list[str] | None = None) -> None:
-    """Entry point for the forecasting script."""
+    """Run the entropy forecasting workflow.
+
+    Args:
+        argv: Optional sequence of command-line arguments.
+    """
     import torch
     import pandas as pd
     from entropy_news.data import TextPreprocessor, NewsDataset
@@ -45,9 +56,24 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Load vocabulary
-    with open(args.vocab_path, "rb") as f:
-        vocab = pickle.load(f)
+    global logger
+    logger = setup_logger("train_logger", args.log_file)
+
+    if not os.path.exists(args.vocab_path):
+        logger.error("Vocabulary file not found: %s", args.vocab_path)
+        raise SystemExit(1)
+
+    if not os.path.exists(args.model_path):
+        logger.error("Model file not found: %s", args.model_path)
+        raise SystemExit(1)
+
+    # Load vocabulary with user-friendly error handling
+    try:
+        with open(args.vocab_path, "rb") as f:
+            vocab = pickle.load(f)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to load vocabulary from %s: %s", args.vocab_path, exc)
+        raise SystemExit(1) from exc
 
     # Preprocess new data
     preprocessor = TextPreprocessor()
@@ -65,7 +91,12 @@ def main(argv: list[str] | None = None) -> None:
         num_layers=args.num_layers,
         dropout=args.dropout,
     )
-    model_old.load_state_dict(torch.load(args.model_path))
+    try:
+        state_dict = torch.load(args.model_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to load model from %s: %s", args.model_path, exc)
+        raise SystemExit(1) from exc
+    model_old.load_state_dict(state_dict)
     model_old = model_old.to(model_old.device)
 
     # Train a new model with the latest data
@@ -76,7 +107,7 @@ def main(argv: list[str] | None = None) -> None:
         num_layers=args.num_layers,
         dropout=args.dropout,
     )
-    model_new.load_state_dict(torch.load(args.model_path))
+    model_new.load_state_dict(state_dict)
     model_new = model_new.to(model_new.device)
 
     # Brief fine-tuning to simulate a model update

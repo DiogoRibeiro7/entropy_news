@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from typing import Any
+import numpy as np
+from entropy_news.types import EmbeddingMatrix
 
 class EntropyLSTM(nn.Module):
     def __init__(
@@ -14,38 +15,37 @@ class EntropyLSTM(nn.Module):
         hidden_dim: int = 16,
         num_layers: int = 1,
         dropout: float = 0.0,
-        embedding_matrix: Any | None = None,
+        embedding_matrix: EmbeddingMatrix | None = None,
     ) -> None:
-        """Simple LSTM model used for entropy estimation.
+        """Construct a lightweight LSTM model for entropy estimation.
 
-        Parameters
-        ----------
-        vocab_size : int
-            Size of the vocabulary.
-        embed_dim : int, optional
-            Dimension of the embedding vectors, by default ``100``.
-        hidden_dim : int, optional
-            Hidden dimension of the LSTM, by default ``16``.
-        num_layers : int, optional
-            Number of stacked LSTM layers, by default ``1``.
-        dropout : float, optional
-            Dropout probability between LSTM layers, by default ``0.0``.
-        embedding_matrix : np.ndarray | None, optional
-            Pre-trained embedding matrix. If provided the weights are frozen.
+        Args:
+            vocab_size: Size of the vocabulary used for embedding lookup.
+            embed_dim: Dimension of the embedding vectors. Defaults to ``100``.
+            hidden_dim: Number of hidden units in the LSTM. Defaults to ``16``.
+            num_layers: How many LSTM layers to stack. Defaults to ``1``.
+            dropout: Dropout probability applied between layers. Defaults to
+                ``0.0``.
+            embedding_matrix: Optional ``numpy`` array containing pre-trained
+                word vectors. When provided, the embedding layer weights are
+                frozen.
         """
 
         super().__init__()
 
+        # Select GPU when available otherwise fall back to CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.num_layers = num_layers
         self.dropout = dropout
 
+        # Simple embedding layer for token lookups
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         if embedding_matrix is not None:
             self.embedding.weight.data.copy_(torch.Tensor(embedding_matrix))
             self.embedding.weight.requires_grad = False  # Freezes embeddings
 
+        # Recurrent layer that processes sequences token by token
         self.lstm = nn.LSTM(
             embed_dim,
             hidden_dim,
@@ -53,11 +53,21 @@ class EntropyLSTM(nn.Module):
             dropout=self.dropout if self.num_layers > 1 else 0.0,
             batch_first=True,
         )
+        # Final linear layer projecting to vocabulary size
         self.fc = nn.Linear(hidden_dim, vocab_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Return logits for a batch of token indices."""
+        """Compute logits for a batch of token indices.
+
+        Args:
+            x: Tensor of token IDs with shape ``(batch, seq_len)``.
+
+        Returns:
+            Tensor containing raw predictions for each token position.
+        """
+
         x = x.to(self.device)
+        # Embed tokens then process through the LSTM
         emb = self.embedding(x)
         output, _ = self.lstm(emb)
         logits = self.fc(output)

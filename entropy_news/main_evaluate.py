@@ -5,18 +5,20 @@ from __future__ import annotations
 
 import argparse
 import pickle
+import logging
+import os
 
 
 from entropy_news.utils import setup_logger, load_texts
 
-logger = setup_logger("eval_logger", "logs/eval.log")
+logger = logging.getLogger("eval_logger")
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the CLI parser for model evaluation.
 
     Returns:
-        argparse.ArgumentParser: Configured parser with all supported options.
+        Configured ``argparse.ArgumentParser`` with all options.
     """
     parser = argparse.ArgumentParser(
         description="Evaluate a trained model on new text data"
@@ -47,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--num-layers", type=int, default=2, help="Number of LSTM layers")
     parser.add_argument("--dropout", type=float, default=0.1, help="LSTM dropout between layers")
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional path to a log file; if omitted only console logging is used",
+    )
     return parser
 
 
@@ -59,15 +66,30 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    global logger
+    logger = setup_logger("eval_logger", args.log_file)
+
+    if not os.path.exists(args.vocab_path):
+        logger.error("Vocabulary file not found: %s", args.vocab_path)
+        raise SystemExit(1)
+
+    if not os.path.exists(args.model_path):
+        logger.error("Model file not found: %s", args.model_path)
+        raise SystemExit(1)
+
     import pandas as pd
     import torch
     from entropy_news.data import TextPreprocessor, NewsDataset
     from entropy_news.model import EntropyLSTM
     from entropy_news.evaluation import EntropyCalculator
 
-    # Load vocabulary
-    with open(args.vocab_path, "rb") as f:
-        vocab: dict[str, int] = pickle.load(f)
+    # Load vocabulary with simple error reporting
+    try:
+        with open(args.vocab_path, "rb") as f:
+            vocab: dict[str, int] = pickle.load(f)
+    except Exception as exc:  # noqa: BLE001 - broad catch for user friendliness
+        logger.error("Failed to load vocabulary from %s: %s", args.vocab_path, exc)
+        raise SystemExit(1) from exc
 
     # Preprocess evaluation data
     preprocessor = TextPreprocessor()
@@ -77,7 +99,7 @@ def main(argv: list[str] | None = None) -> None:
     encoded = [preprocessor.encode(t) for t in texts]
     dataset = NewsDataset(encoded, seq_len=args.seq_len)
 
-    # Load model
+    # Load model with clearer error handling
     model = EntropyLSTM(
         vocab_size=len(vocab),
         embed_dim=args.embed_dim,
@@ -85,7 +107,12 @@ def main(argv: list[str] | None = None) -> None:
         num_layers=args.num_layers,
         dropout=args.dropout,
     )
-    model.load_state_dict(torch.load(args.model_path))
+    try:
+        state_dict = torch.load(args.model_path)
+    except Exception as exc:  # noqa: BLE001 - catch all torch load errors
+        logger.error("Failed to load model from %s: %s", args.model_path, exc)
+        raise SystemExit(1) from exc
+    model.load_state_dict(state_dict)
     model = model.to(model.device)
 
     # Compute entropy and perplexity
