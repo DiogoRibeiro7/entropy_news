@@ -1,11 +1,12 @@
 # entropy_news/data/dataset.py
 
 import torch
+import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
-from typing import List
 
 class NewsDataset(Dataset):
-    def __init__(self, encoded_texts: List[List[int]], seq_len: int = 100):
+    def __init__(self, encoded_texts: list[list[int]], seq_len: int = 100):
         """Store padded token sequences for language-model training.
 
         Args:
@@ -13,29 +14,19 @@ class NewsDataset(Dataset):
             seq_len: Maximum length of each sequence in tokens.
         """
         self.seq_len = seq_len
-        # Pre-pad all sequences so ``__getitem__`` can simply slice
-        self.data = [self.pad_sequence(seq) for seq in encoded_texts]
-
-    def pad_sequence(self, seq: List[int]) -> torch.Tensor:
-        """Pad or truncate ``seq`` to ``seq_len + 1`` tokens.
-
-        Args:
-            seq: List of token IDs representing one article.
-
-        Returns:
-            Tensor of length ``seq_len + 1`` ready for model input.
-        """
-        if len(seq) < self.seq_len + 1:
-            # Append PAD tokens if sequence is too short
-            seq += [0] * (self.seq_len + 1 - len(seq))
+        seq_tensors = [torch.tensor(seq[: seq_len + 1], dtype=torch.long) for seq in encoded_texts]
+        if seq_tensors:
+            padded = pad_sequence(seq_tensors, batch_first=True, padding_value=0)
+            if padded.size(1) < seq_len + 1:
+                pad_width = seq_len + 1 - padded.size(1)
+                padded = F.pad(padded, (0, pad_width))
+            self.data = padded
         else:
-            # Trim long sequences
-            seq = seq[: self.seq_len + 1]
-        return torch.Tensor(seq).long()
+            self.data = torch.zeros(0, seq_len + 1, dtype=torch.long)
 
     def __len__(self) -> int:
         """Return the number of stored sequences."""
-        return len(self.data)
+        return self.data.size(0)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Retrieve one training example.
