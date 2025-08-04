@@ -46,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path to a log file; if omitted only console logging is used",
     )
+    parser.add_argument(
+        "--lazy",
+        action="store_true",
+        help="Defer dataset padding to reduce memory usage",
+    )
     return parser
 
 
@@ -78,7 +83,7 @@ def main(argv: list[str] | None = None) -> None:
     preprocessor.load_glove_embeddings(args.glove_path, args.embed_dim)
 
     encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(encoded, seq_len=args.seq_len)
+    dataset = NewsDataset(encoded, seq_len=args.seq_len, lazy=args.lazy)
 
     device = get_device()
     # Configure the LSTM model

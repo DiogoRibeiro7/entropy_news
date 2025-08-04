@@ -39,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path to a log file; if omitted only console logging is used",
     )
+    parser.add_argument(
+        "--lazy",
+        action="store_true",
+        help="Defer dataset padding to reduce memory usage",
+    )
     return parser
 
 def main(argv: list[str] | None = None) -> None:
@@ -85,7 +90,7 @@ def main(argv: list[str] | None = None) -> None:
         logger.error("%s", exc)
         raise SystemExit(1) from exc
     encoded = [preprocessor.encode(t) for t in texts]
-    new_dataset = NewsDataset(encoded, seq_len=args.seq_len)
+    new_dataset = NewsDataset(encoded, seq_len=args.seq_len, lazy=args.lazy)
 
     device = get_device()
     # Load previous model

@@ -34,3 +34,20 @@ def test_dataset_getitem_returns_shifted_pairs() -> None:
     x, y = dataset[0]
     assert x.tolist() == [1, 2, 3]
     assert y.tolist() == [2, 3, 4]
+
+
+def test_lazy_loading_behaves_like_eager() -> None:
+    """Lazy datasets should yield same samples as eager ones."""
+
+    sequences = [[1, 2, 3], [4, 5, 6, 7]]
+    eager = NewsDataset(sequences, seq_len=3)
+    lazy = NewsDataset(sequences, seq_len=3, lazy=True)
+
+    assert len(lazy) == len(eager)
+    for i in range(len(eager)):
+        x_l, y_l = lazy[i]
+        x_e, y_e = eager[i]
+        assert x_l.tolist() == x_e.tolist()
+        assert y_l.tolist() == y_e.tolist()
+
+    assert lazy.data is None

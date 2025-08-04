@@ -18,7 +18,11 @@ logger = logging.getLogger("train_logger")
 
 
 def prepare_training_set(
-    months: list[str], base_data_dir: str, seq_len: int, vocab_size: int
+    months: list[str],
+    base_data_dir: str,
+    seq_len: int,
+    vocab_size: int,
+    lazy: bool = False,
 ) -> tuple[NewsDataset, TextPreprocessor]:
     """Create a dataset and preprocessor from historical months.
 
@@ -38,7 +42,7 @@ def prepare_training_set(
     preprocessor = TextPreprocessor(vocab_size=vocab_size)
     preprocessor.build_vocab(texts)
     encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(encoded, seq_len=seq_len)
+    dataset = NewsDataset(encoded, seq_len=seq_len, lazy=lazy)
     # Return both the processed dataset and the fitted preprocessor
     return dataset, preprocessor
 
@@ -95,7 +99,8 @@ def update_with_new_month(
     fine_tune_epochs: int,
     learning_rate: float,
     device: torch.device | None = None,
-) -> dict:
+    lazy: bool = False,
+) -> dict[str, float]:
     """Fine-tune ``model`` on new data and compute entropies.
 
     Args:
@@ -121,7 +126,7 @@ def update_with_new_month(
 
     encoded_new = [preprocessor.encode(t) for t in new_texts]
     # Dataset representing the new month's articles
-    new_dataset = NewsDataset(encoded_new, seq_len=seq_len)
+    new_dataset = NewsDataset(encoded_new, seq_len=seq_len, lazy=lazy)
 
     # Clone current parameters before fine-tuning
     model_old = EntropyLSTM(
@@ -145,6 +150,7 @@ def rolling_pipeline(
     output_dir: str,
     seq_len: int = 100,
     train_window_size: int = 6,
+    lazy: bool = False,
 ):
     """Run a rolling training and forecasting pipeline.
 
@@ -182,7 +188,7 @@ def rolling_pipeline(
 
         train_months = months[idx - train_window_size : idx]
         train_dataset, preprocessor = prepare_training_set(
-            train_months, base_data_dir, seq_len, vocab_size
+            train_months, base_data_dir, seq_len, vocab_size, lazy=lazy
         )
 
         model = train_model(
@@ -208,6 +214,7 @@ def rolling_pipeline(
             fine_tune_epochs=fine_tune_epochs,
             learning_rate=learning_rate,
             device=device,
+            lazy=lazy,
         )
         entropies["month"] = current_month
         results.append(entropies)
@@ -275,6 +282,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path to a log file; if omitted only console logging is used",
     )
+    parser.add_argument(
+        "--lazy",
+        action="store_true",
+        help="Defer dataset padding to reduce memory usage",
+    )
     return parser
 
 
@@ -295,6 +307,7 @@ def main(argv: list[str] | None = None) -> None:
         output_dir=args.output_dir,
         seq_len=args.seq_len,
         train_window_size=args.train_window_size,
+        lazy=args.lazy,
     )
 
 
