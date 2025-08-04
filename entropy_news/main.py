@@ -65,8 +65,12 @@ def main(argv: list[str] | None = None) -> None:
     global logger
     logger = setup_logger("train_logger", args.log_file)
 
-    # Load training data
-    texts = load_texts(args.train_data)
+    # Load training data with clearer error reporting
+    try:
+        texts = load_texts(args.train_data)
+    except (OSError, ValueError) as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
 
     # Preprocess texts and build vocabulary
     preprocessor = TextPreprocessor(vocab_size=args.vocab_size)

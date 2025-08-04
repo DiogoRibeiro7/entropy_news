@@ -79,7 +79,11 @@ def main(argv: list[str] | None = None) -> None:
     preprocessor = TextPreprocessor()
     preprocessor.vocab = vocab
 
-    texts = load_texts(args.new_data)
+    try:
+        texts = load_texts(args.new_data)
+    except (OSError, ValueError) as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
     encoded = [preprocessor.encode(t) for t in texts]
     new_dataset = NewsDataset(encoded, seq_len=args.seq_len)
 
