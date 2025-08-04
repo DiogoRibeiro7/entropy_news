@@ -1,7 +1,7 @@
 # entropy_news/evaluation/news_model_update.py
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 from .entropy_calculator import EntropyCalculator
 
 class NewsModelUpdateCalculator:
@@ -13,7 +13,9 @@ class NewsModelUpdateCalculator:
         self.new_model = new_model
         self.device = new_model.device
 
-    def compute_entropies(self, new_dataset: Dataset, batch_size: int = 1) -> dict:
+    def compute_entropies(
+        self, new_dataset: Dataset, batch_size: int = 1
+    ) -> dict[str, float]:
         """Compute entropy decomposition using both models.
 
         Args:
@@ -32,9 +34,9 @@ class NewsModelUpdateCalculator:
         ENT_model = ENT - ENT_news
 
         return {
-            'ENT': ENT,
-            'ENT_news': ENT_news,
-            'ENT_model': ENT_model
+            "ENT": ENT,
+            "ENT_news": ENT_news,
+            "ENT_model": ENT_model,
         }
 
 

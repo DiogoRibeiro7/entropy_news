@@ -5,7 +5,7 @@ import os
 import logging
 import json
 from collections import Counter
-from typing import List, Dict, Tuple
+from typing import Dict, List
 
 from entropy_news.types import EmbeddingMatrix
 
