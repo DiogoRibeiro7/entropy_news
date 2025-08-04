@@ -3,15 +3,22 @@
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from ..utils import perplexity
+from ..utils import perplexity, get_device
 
 class EntropyCalculator:
     """Compute cross-entropy and perplexity for a language model."""
 
-    def __init__(self, model: torch.nn.Module):
-        """Initialise the calculator with a model."""
-        self.model = model
-        self.device = model.device
+    def __init__(
+        self, model: torch.nn.Module, device: torch.device | None = None
+    ) -> None:
+        """Initialise the calculator with a model.
+
+        Args:
+            model: Language model used for prediction.
+            device: Optional ``torch`` device for computation.
+        """
+        self.device = device or get_device()
+        self.model = model.to(self.device)
 
     def compute_entropy(self, dataset: Dataset, batch_size: int = 1) -> float:
         """Calculate the average cross-entropy on ``dataset``.

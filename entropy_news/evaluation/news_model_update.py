@@ -3,15 +3,27 @@
 import torch
 from torch.utils.data import Dataset
 from .entropy_calculator import EntropyCalculator
+from entropy_news.utils import get_device
 
 class NewsModelUpdateCalculator:
     """Decompose entropy into news and model components."""
 
-    def __init__(self, old_model: torch.nn.Module, new_model: torch.nn.Module):
-        """Store ``old_model`` and ``new_model`` for comparison."""
-        self.old_model = old_model
-        self.new_model = new_model
-        self.device = new_model.device
+    def __init__(
+        self,
+        old_model: torch.nn.Module,
+        new_model: torch.nn.Module,
+        device: torch.device | None = None,
+    ) -> None:
+        """Store ``old_model`` and ``new_model`` for comparison.
+
+        Args:
+            old_model: Baseline language model.
+            new_model: Updated language model.
+            device: Optional ``torch`` device for computation.
+        """
+        self.device = device or get_device()
+        self.old_model = old_model.to(self.device)
+        self.new_model = new_model.to(self.device)
 
     def compute_entropies(
         self, new_dataset: Dataset, batch_size: int = 1
@@ -26,8 +38,8 @@ class NewsModelUpdateCalculator:
             Dictionary with keys ``ENT``, ``ENT_news`` and ``ENT_model``.
         """
         # Compute entropy under both the old and the updated model
-        old_entropy_calculator = EntropyCalculator(self.old_model)
-        new_entropy_calculator = EntropyCalculator(self.new_model)
+        old_entropy_calculator = EntropyCalculator(self.old_model, device=self.device)
+        new_entropy_calculator = EntropyCalculator(self.new_model, device=self.device)
 
         ENT_news = old_entropy_calculator.compute_entropy(new_dataset, batch_size=batch_size)
         ENT = new_entropy_calculator.compute_entropy(new_dataset, batch_size=batch_size)

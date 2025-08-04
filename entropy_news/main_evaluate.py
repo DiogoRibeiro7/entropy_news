@@ -9,7 +9,7 @@ import logging
 import os
 
 
-from entropy_news.utils import setup_logger, load_texts
+from entropy_news.utils import setup_logger, load_texts, get_device
 
 logger = logging.getLogger("eval_logger")
 
@@ -99,6 +99,7 @@ def main(argv: list[str] | None = None) -> None:
     encoded = [preprocessor.encode(t) for t in texts]
     dataset = NewsDataset(encoded, seq_len=args.seq_len)
 
+    device = get_device()
     # Load model with clearer error handling
     model = EntropyLSTM(
         vocab_size=len(vocab),
@@ -106,17 +107,16 @@ def main(argv: list[str] | None = None) -> None:
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
-    )
+    ).to(device)
     try:
         state_dict = torch.load(args.model_path)
     except Exception as exc:  # noqa: BLE001 - catch all torch load errors
         logger.error("Failed to load model from %s: %s", args.model_path, exc)
         raise SystemExit(1) from exc
     model.load_state_dict(state_dict)
-    model = model.to(model.device)
 
     # Compute entropy and perplexity
-    calculator = EntropyCalculator(model)
+    calculator = EntropyCalculator(model, device=device)
     entropy = calculator.compute_entropy(dataset, batch_size=args.batch_size)
     perplex = calculator.compute_perplexity(dataset, batch_size=args.batch_size)
 

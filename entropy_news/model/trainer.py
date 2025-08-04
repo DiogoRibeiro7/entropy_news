@@ -7,16 +7,25 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from typing import Optional
 from tqdm import tqdm
+from entropy_news.utils import get_device
 
 logger = logging.getLogger(__name__)
 
 class Trainer:
     """Utility class to train and fine-tune language models."""
 
-    def __init__(self, model: nn.Module, learning_rate: float = 0.001):
-        """Initialise with ``model`` and Adam optimiser."""
-        self.model = model
-        self.device = model.device
+    def __init__(
+        self, model: nn.Module, learning_rate: float = 0.001, device: torch.device | None = None
+    ) -> None:
+        """Initialise the trainer.
+
+        Args:
+            model: Model to optimise.
+            learning_rate: Step size for the Adam optimiser.
+            device: Optional ``torch`` device for computation.
+        """
+        self.device = device or get_device()
+        self.model = model.to(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         self.criterion = nn.CrossEntropyLoss(ignore_index=0)
 

@@ -4,7 +4,7 @@ import pickle
 import argparse
 import logging
 
-from entropy_news.utils import setup_logger, load_texts
+from entropy_news.utils import setup_logger, load_texts, get_device
 
 logger = logging.getLogger("train_logger")
 
@@ -76,6 +76,7 @@ def main(argv: list[str] | None = None) -> None:
     encoded = [preprocessor.encode(t) for t in texts]
     dataset = NewsDataset(encoded, seq_len=args.seq_len)
 
+    device = get_device()
     # Configure the LSTM model
     model = EntropyLSTM(
         vocab_size=len(preprocessor.vocab),
@@ -84,11 +85,10 @@ def main(argv: list[str] | None = None) -> None:
         num_layers=args.num_layers,
         dropout=args.dropout,
         embedding_matrix=preprocessor.embedding_matrix,
-    )
-    model = model.to(model.device)
+    ).to(device)
 
     # Train the model
-    trainer = Trainer(model, learning_rate=args.learning_rate)
+    trainer = Trainer(model, learning_rate=args.learning_rate, device=device)
     trainer.train(dataset, epochs=args.epochs, batch_size=args.batch_size)
 
     # Save the model

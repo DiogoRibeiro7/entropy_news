@@ -5,7 +5,7 @@ import argparse
 import logging
 import os
 
-from entropy_news.utils import setup_logger, load_texts
+from entropy_news.utils import setup_logger, load_texts, get_device
 
 
 logger = logging.getLogger("train_logger")
@@ -83,6 +83,7 @@ def main(argv: list[str] | None = None) -> None:
     encoded = [preprocessor.encode(t) for t in texts]
     new_dataset = NewsDataset(encoded, seq_len=args.seq_len)
 
+    device = get_device()
     # Load previous model
     model_old = EntropyLSTM(
         vocab_size=len(vocab),
@@ -90,14 +91,13 @@ def main(argv: list[str] | None = None) -> None:
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
-    )
+    ).to(device)
     try:
         state_dict = torch.load(args.model_path)
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to load model from %s: %s", args.model_path, exc)
         raise SystemExit(1) from exc
     model_old.load_state_dict(state_dict)
-    model_old = model_old.to(model_old.device)
 
     # Train a new model with the latest data
     model_new = EntropyLSTM(
@@ -106,17 +106,16 @@ def main(argv: list[str] | None = None) -> None:
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
-    )
+    ).to(device)
     model_new.load_state_dict(state_dict)
-    model_new = model_new.to(model_new.device)
 
     # Brief fine-tuning to simulate a model update
     from entropy_news.model import Trainer
-    trainer = Trainer(model_new)
+    trainer = Trainer(model_new, device=device)
     trainer.fine_tune(new_dataset, epochs=args.fine_tune_epochs, batch_size=args.batch_size)
 
     # Calculate ENT, ENT_news and ENT_model
-    calculator = NewsModelUpdateCalculator(model_old, model_new)
+    calculator = NewsModelUpdateCalculator(model_old, model_new, device=device)
     entropies = calculator.compute_entropies(new_dataset)
 
     # Export to CSV

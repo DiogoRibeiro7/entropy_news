@@ -8,14 +8,12 @@ import os
 import logging
 from typing import TYPE_CHECKING
 
-from entropy_news.utils import load_texts, setup_logger
+from entropy_news.utils import load_texts, setup_logger, get_device
 
 if TYPE_CHECKING:  # pragma: no cover - only for type checkers
     from entropy_news.data import NewsDataset, TextPreprocessor
     from entropy_news.evaluation import NewsModelUpdateCalculator
     from entropy_news.model import EntropyLSTM
-from entropy_news.utils import load_texts, setup_logger
-
 logger = logging.getLogger("train_logger")
 
 
@@ -53,6 +51,7 @@ def train_model(
     learning_rate: float,
     epochs: int,
     batch_size: int,
+    device: torch.device | None = None,
 ) -> EntropyLSTM:
     """Train an ``EntropyLSTM`` model.
 
@@ -65,20 +64,22 @@ def train_model(
         epochs: Number of training epochs.
         batch_size: Samples per batch.
 
+        device: Optional ``torch`` device for computation.
+
     Returns:
         The trained ``EntropyLSTM`` instance.
     """
 
     from entropy_news.model import EntropyLSTM, Trainer
 
+    device = device or get_device()
     # Instantiate a fresh model for this training window
     model = EntropyLSTM(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
         hidden_dim=hidden_dim,
-    )
-    model = model.to(model.device)
-    trainer = Trainer(model, learning_rate=learning_rate)
+    ).to(device)
+    trainer = Trainer(model, learning_rate=learning_rate, device=device)
     trainer.train(dataset, epochs=epochs, batch_size=batch_size)
     # Trained model ready for evaluation
     return model
@@ -93,6 +94,7 @@ def update_with_new_month(
     hidden_dim: int,
     fine_tune_epochs: int,
     learning_rate: float,
+    device: torch.device | None = None,
 ) -> dict:
     """Fine-tune ``model`` on new data and compute entropies.
 
@@ -105,6 +107,7 @@ def update_with_new_month(
         hidden_dim: Hidden state dimension of the models.
         fine_tune_epochs: Number of fine-tuning epochs.
         learning_rate: Optimiser learning rate.
+        device: Optional ``torch`` device for computation.
 
     Returns:
         Entropy metrics for the updated model.
@@ -113,6 +116,8 @@ def update_with_new_month(
     from entropy_news.data import NewsDataset
     from entropy_news.evaluation import NewsModelUpdateCalculator
     from entropy_news.model import EntropyLSTM, Trainer
+
+    device = device or get_device()
 
     encoded_new = [preprocessor.encode(t) for t in new_texts]
     # Dataset representing the new month's articles
@@ -123,14 +128,13 @@ def update_with_new_month(
         vocab_size=len(preprocessor.vocab),
         embed_dim=embed_dim,
         hidden_dim=hidden_dim,
-    )
+    ).to(device)
     model_old.load_state_dict(model.state_dict())
-    model_old = model_old.to(model_old.device)
 
-    trainer = Trainer(model, learning_rate=learning_rate)
+    trainer = Trainer(model, learning_rate=learning_rate, device=device)
     trainer.fine_tune(new_dataset, epochs=fine_tune_epochs, batch_size=32)
 
-    calculator = NewsModelUpdateCalculator(model_old, model)
+    calculator = NewsModelUpdateCalculator(model_old, model, device=device)
     # Compare old and updated models on the new data
     return calculator.compute_entropies(new_dataset)
 
@@ -165,6 +169,7 @@ def rolling_pipeline(
     train_epochs = 50
     fine_tune_epochs = 5
     learning_rate = 0.001
+    device = get_device()
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -188,6 +193,7 @@ def rolling_pipeline(
             learning_rate=learning_rate,
             epochs=train_epochs,
             batch_size=batch_size,
+            device=device,
         )
 
         # Load new month's data
@@ -201,6 +207,7 @@ def rolling_pipeline(
             hidden_dim=hidden_dim,
             fine_tune_epochs=fine_tune_epochs,
             learning_rate=learning_rate,
+            device=device,
         )
         entropies["month"] = current_month
         results.append(entropies)
