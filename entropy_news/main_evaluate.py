@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import pickle
 import logging
 import os
 
-
-from entropy_news.utils import setup_logger, load_texts, get_device
+from entropy_news.utils import get_device, load_texts, setup_logger
 
 logger = logging.getLogger("eval_logger")
 
@@ -25,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--vocab-path",
-        default="output/vocab.pkl",
+        default="output/vocab.json",
         help="Path to saved vocabulary",
     )
     parser.add_argument(
@@ -84,21 +82,16 @@ def main(argv: list[str] | None = None) -> None:
 
     import pandas as pd
     import torch
-    from entropy_news.data import TextPreprocessor, NewsDataset
-    from entropy_news.model import EntropyLSTM
+    from entropy_news.data import NewsDataset, TextPreprocessor
     from entropy_news.evaluation import EntropyCalculator
+    from entropy_news.model import EntropyLSTM
 
-    # Load vocabulary with simple error reporting
+    preprocessor = TextPreprocessor()
     try:
-        with open(args.vocab_path, "rb") as f:
-            vocab: dict[str, int] = pickle.load(f)
+        preprocessor.load_vocab(args.vocab_path)
     except Exception as exc:  # noqa: BLE001 - broad catch for user friendliness
         logger.error("Failed to load vocabulary from %s: %s", args.vocab_path, exc)
         raise SystemExit(1) from exc
-
-    # Preprocess evaluation data
-    preprocessor = TextPreprocessor()
-    preprocessor.vocab = vocab
 
     try:
         texts = load_texts(args.data)
@@ -109,9 +102,8 @@ def main(argv: list[str] | None = None) -> None:
     dataset = NewsDataset(encoded, seq_len=args.seq_len, lazy=args.lazy)
 
     device = get_device()
-    # Load model with clearer error handling
     model = EntropyLSTM(
-        vocab_size=len(vocab),
+        vocab_size=len(preprocessor.vocab),
         embed_dim=args.embed_dim,
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,

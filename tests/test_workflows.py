@@ -1,4 +1,3 @@
-import pickle
 import pytest
 pd = pytest.importorskip("pandas")
 
@@ -26,7 +25,7 @@ def test_training_and_forecasting(tmp_path):
     _write_dummy_glove(glove)
 
     model_out = tmp_path / "model.pth"
-    vocab_out = tmp_path / "vocab.pkl"
+    vocab_out = tmp_path / "vocab.json"
 
     train_main([
         "--train-data",
@@ -86,7 +85,7 @@ def test_full_evaluation_flow(tmp_path) -> None:
     _write_dummy_glove(glove)
 
     model_out = tmp_path / "model.pth"
-    vocab_out = tmp_path / "vocab.pkl"
+    vocab_out = tmp_path / "vocab.json"
 
     train_main([
         "--train-data",

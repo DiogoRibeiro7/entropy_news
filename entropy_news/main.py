@@ -1,10 +1,9 @@
 # entropy_news/main.py
 
-import pickle
 import argparse
 import logging
 
-from entropy_news.utils import setup_logger, load_texts, get_device
+from entropy_news.utils import get_device, load_texts, setup_logger
 
 logger = logging.getLogger("train_logger")
 
@@ -39,7 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="File to save the trained model",
     )
     parser.add_argument(
-        "--vocab-out", default="output/vocab.pkl", help="Where to store the vocabulary"
+        "--vocab-out", default="output/vocab.json", help="Where to store the vocabulary"
     )
     parser.add_argument(
         "--log-file",
@@ -102,8 +101,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Save the model
     torch.save(model.state_dict(), args.model_out)
-    with open(args.vocab_out, "wb") as f:
-        pickle.dump(preprocessor.vocab, f)
+    preprocessor.save_vocab(args.vocab_out)
 
     logger.info("Training complete and model saved.")
 

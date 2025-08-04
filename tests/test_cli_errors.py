@@ -1,4 +1,6 @@
-import pickle
+import json
+from pathlib import Path
+
 import pytest
 
 from entropy_news.main import main as train_main
@@ -6,10 +8,10 @@ from entropy_news.main_evaluate import main as eval_main
 from entropy_news.main_forecast import main as forecast_main
 
 
-def _write_vocab(path):
+def _write_vocab(path: Path) -> None:
     data = {"<PAD>": 0, "hello": 1}
-    with open(path, "wb") as f:
-        pickle.dump(data, f)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"vocab_size": len(data), "vocab": data}, f)
 
 
 def test_train_main_missing_data(tmp_path, caplog) -> None:
@@ -28,7 +30,7 @@ def test_eval_main_missing_model(tmp_path, caplog) -> None:
     torch = pytest.importorskip("torch")
     data_file = tmp_path / "data.txt"
     data_file.write_text("hello\n")
-    vocab_file = tmp_path / "vocab.pkl"
+    vocab_file = tmp_path / "vocab.json"
     _write_vocab(vocab_file)
 
     with caplog.at_level("ERROR"):
@@ -48,7 +50,7 @@ def test_eval_main_missing_data(tmp_path, caplog) -> None:
     """Evaluation CLI should report missing data files."""
 
     torch = pytest.importorskip("torch")
-    vocab_file = tmp_path / "vocab.pkl"
+    vocab_file = tmp_path / "vocab.json"
     _write_vocab(vocab_file)
     model_file = tmp_path / "model.pth"
     model_file.write_bytes(b"0")
@@ -72,7 +74,7 @@ def test_forecast_main_missing_model(tmp_path, caplog) -> None:
     torch = pytest.importorskip("torch")
     new_file = tmp_path / "new.txt"
     new_file.write_text("hello\n")
-    vocab_file = tmp_path / "vocab.pkl"
+    vocab_file = tmp_path / "vocab.json"
     _write_vocab(vocab_file)
 
     with caplog.at_level("ERROR"):
@@ -94,7 +96,7 @@ def test_forecast_main_missing_data(tmp_path, caplog) -> None:
     """Forecast CLI should report missing data files."""
 
     torch = pytest.importorskip("torch")
-    vocab_file = tmp_path / "vocab.pkl"
+    vocab_file = tmp_path / "vocab.json"
     _write_vocab(vocab_file)
     model_file = tmp_path / "model.pth"
     model_file.write_bytes(b"0")
