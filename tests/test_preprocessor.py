@@ -71,6 +71,17 @@ def test_load_glove_embeddings_skips_bad_lines(tmp_path: Path) -> None:
 
     assert pre.embedding_matrix.shape == (len(pre.vocab), 2)
 
+
+def test_load_glove_embeddings_invalid_encoding(tmp_path: Path) -> None:
+    """Invalid encoding triggers a clear ``ValueError``."""
+
+    glove_file = tmp_path / "glove.txt"
+    glove_file.write_bytes(b"\xff\xff")
+    pre = TextPreprocessor()
+
+    with pytest.raises(ValueError, match="Failed to decode GloVe file"):
+        pre.load_glove_embeddings(glove_file)
+
 def test_clean_text_and_tokenize() -> None:
     """Cleaning removes punctuation and lowers case."""
 
