@@ -57,6 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Defer dataset padding to reduce memory usage",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 
@@ -118,8 +125,12 @@ def main(argv: list[str] | None = None) -> None:
 
     # Compute entropy and perplexity
     calculator = EntropyCalculator(model, device=device)
-    entropy = calculator.compute_entropy(dataset, batch_size=args.batch_size)
-    perplex = calculator.compute_perplexity(dataset, batch_size=args.batch_size)
+    entropy = calculator.compute_entropy(
+        dataset, batch_size=args.batch_size, show_progress=args.progress
+    )
+    perplex = calculator.compute_perplexity(
+        dataset, batch_size=args.batch_size, show_progress=args.progress
+    )
 
     results = {"entropy": entropy, "perplexity": perplex}
 

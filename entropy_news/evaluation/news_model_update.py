@@ -26,13 +26,17 @@ class NewsModelUpdateCalculator:
         self.new_model = new_model.to(self.device)
 
     def compute_entropies(
-        self, new_dataset: Dataset, batch_size: int = 1
+        self,
+        new_dataset: Dataset,
+        batch_size: int = 1,
+        show_progress: bool = False,
     ) -> dict[str, float]:
         """Compute entropy decomposition using both models.
 
         Args:
             new_dataset: Dataset containing tokenised sequences.
             batch_size: Size of each evaluation batch.
+            show_progress: Whether to display a progress bar while iterating.
 
         Returns:
             Dictionary with keys ``ENT``, ``ENT_news`` and ``ENT_model``.
@@ -41,8 +45,12 @@ class NewsModelUpdateCalculator:
         old_entropy_calculator = EntropyCalculator(self.old_model, device=self.device)
         new_entropy_calculator = EntropyCalculator(self.new_model, device=self.device)
 
-        ENT_news = old_entropy_calculator.compute_entropy(new_dataset, batch_size=batch_size)
-        ENT = new_entropy_calculator.compute_entropy(new_dataset, batch_size=batch_size)
+        ENT_news = old_entropy_calculator.compute_entropy(
+            new_dataset, batch_size=batch_size, show_progress=show_progress
+        )
+        ENT = new_entropy_calculator.compute_entropy(
+            new_dataset, batch_size=batch_size, show_progress=show_progress
+        )
         ENT_model = ENT - ENT_news
 
         return {

@@ -43,6 +43,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Defer dataset padding to reduce memory usage",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 def main(argv: list[str] | None = None) -> None:
@@ -115,11 +122,18 @@ def main(argv: list[str] | None = None) -> None:
     # Brief fine-tuning to simulate a model update
     from entropy_news.model import Trainer
     trainer = Trainer(model_new, device=device)
-    trainer.fine_tune(new_dataset, epochs=args.fine_tune_epochs, batch_size=args.batch_size)
+    trainer.fine_tune(
+        new_dataset,
+        epochs=args.fine_tune_epochs,
+        batch_size=args.batch_size,
+        show_progress=args.progress,
+    )
 
     # Calculate ENT, ENT_news and ENT_model
     calculator = NewsModelUpdateCalculator(model_old, model_new, device=device)
-    entropies = calculator.compute_entropies(new_dataset)
+    entropies = calculator.compute_entropies(
+        new_dataset, show_progress=args.progress
+    )
 
     # Export to CSV
     df = pd.DataFrame([entropies])

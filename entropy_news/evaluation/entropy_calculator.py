@@ -2,6 +2,7 @@
 
 import torch
 from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 from ..utils import perplexity, get_device
 
@@ -20,12 +21,15 @@ class EntropyCalculator:
         self.device = device or get_device()
         self.model = model.to(self.device)
 
-    def compute_entropy(self, dataset: Dataset, batch_size: int = 1) -> float:
+    def compute_entropy(
+        self, dataset: Dataset, batch_size: int = 1, show_progress: bool = False
+    ) -> float:
         """Calculate the average cross-entropy on ``dataset``.
 
         Args:
             dataset: Dataset yielding input and target token sequences.
             batch_size: Number of samples per evaluation batch.
+            show_progress: Whether to display a progress bar while iterating.
 
         Returns:
             Average token-wise cross-entropy, ignoring padding tokens.
@@ -37,7 +41,8 @@ class EntropyCalculator:
         total_tokens = 0
 
         with torch.no_grad():
-            for x_batch, y_batch in loader:
+            iterator = tqdm(loader, desc="Evaluating", leave=False) if show_progress else loader
+            for x_batch, y_batch in iterator:
                 x_batch = x_batch.to(self.device)
                 y_batch = y_batch.to(self.device)
 
@@ -51,18 +56,23 @@ class EntropyCalculator:
                 total_log_prob += (log_token_probs * mask).sum().item()
                 total_tokens += mask.sum().item()
 
-        entropy = -total_log_prob / total_tokens if total_tokens > 0 else float('inf')
+        entropy = -total_log_prob / total_tokens if total_tokens > 0 else float("inf")
         return entropy
 
-    def compute_perplexity(self, dataset: Dataset, batch_size: int = 1) -> float:
+    def compute_perplexity(
+        self, dataset: Dataset, batch_size: int = 1, show_progress: bool = False
+    ) -> float:
         """Compute perplexity from cross-entropy on ``dataset``.
 
         Args:
             dataset: Dataset for evaluation.
             batch_size: Number of samples per evaluation batch.
+            show_progress: Whether to display a progress bar while iterating.
 
         Returns:
             Perplexity value.
         """
-        ent = self.compute_entropy(dataset, batch_size=batch_size)
+        ent = self.compute_entropy(
+            dataset, batch_size=batch_size, show_progress=show_progress
+        )
         return perplexity(ent)

@@ -40,6 +40,7 @@ class Trainer:
         patience: int = 5,
         start_epoch: int = 0,
         checkpoint_path: str | Path | None = None,
+        show_progress: bool = True,
     ) -> None:
         """Train ``self.model`` using ``dataset``.
 
@@ -54,6 +55,7 @@ class Trainer:
             start_epoch: Epoch to resume training from (zero-indexed).
             checkpoint_path: Optional file path to store checkpoints after each
                 epoch.
+            show_progress: Whether to display a progress bar for each epoch.
         """
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         val_loader = (
@@ -66,7 +68,11 @@ class Trainer:
 
         for epoch in range(start_epoch + 1, epochs + 1):
             total_loss = 0
-            loop = tqdm(loader, desc=f"Epoch {epoch}/{epochs}", leave=False)
+            loop = (
+                tqdm(loader, desc=f"Epoch {epoch}/{epochs}", leave=False)
+                if show_progress
+                else loader
+            )
             for x_batch, y_batch in loop:
                 x_batch = x_batch.to(self.device)
                 y_batch = y_batch.to(self.device)
@@ -80,7 +86,8 @@ class Trainer:
                 self.optimizer.step()
 
                 total_loss += loss.item()
-                loop.set_postfix(loss=loss.item())
+                if show_progress:
+                    loop.set_postfix(loss=loss.item())
 
             avg_loss = total_loss / len(loader)
             val_loss = (
@@ -107,16 +114,28 @@ class Trainer:
             if checkpoint_path:
                 self.save_checkpoint(checkpoint_path, epoch)
 
-    def fine_tune(self, new_dataset: Dataset, epochs: int = 50, batch_size: int = 128) -> None:
+    def fine_tune(
+        self,
+        new_dataset: Dataset,
+        epochs: int = 50,
+        batch_size: int = 128,
+        show_progress: bool = True,
+    ) -> None:
         """Continue training ``self.model`` on ``new_dataset``.
 
         Args:
             new_dataset: Additional data used for fine-tuning.
             epochs: Number of fine-tuning epochs.
             batch_size: Samples per batch.
+            show_progress: Whether to display a progress bar during training.
         """
         logger.info("Fine-tuning model on new data...")
-        self.train(new_dataset, epochs=epochs, batch_size=batch_size)
+        self.train(
+            new_dataset,
+            epochs=epochs,
+            batch_size=batch_size,
+            show_progress=show_progress,
+        )
 
     def evaluate(self, loader: DataLoader) -> float:
         """Compute average loss on ``loader`` without updating gradients.

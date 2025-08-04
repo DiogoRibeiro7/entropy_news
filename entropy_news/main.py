@@ -60,6 +60,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Checkpoint file to resume training from",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 
@@ -89,7 +96,9 @@ def main(argv: list[str] | None = None) -> None:
     # Preprocess texts and build vocabulary
     preprocessor = TextPreprocessor(vocab_size=args.vocab_size)
     preprocessor.build_vocab(texts)
-    preprocessor.load_glove_embeddings(args.glove_path, args.embed_dim)
+    preprocessor.load_glove_embeddings(
+        args.glove_path, args.embed_dim, show_progress=args.progress
+    )
 
     encoded = [preprocessor.encode(t) for t in texts]
     dataset = NewsDataset(encoded, seq_len=args.seq_len, lazy=args.lazy)
@@ -121,6 +130,7 @@ def main(argv: list[str] | None = None) -> None:
         batch_size=args.batch_size,
         start_epoch=start_epoch,
         checkpoint_path=args.checkpoint,
+        show_progress=args.progress,
     )
 
     # Save the model

@@ -56,6 +56,7 @@ def train_model(
     epochs: int,
     batch_size: int,
     device: torch.device | None = None,
+    show_progress: bool = True,
 ) -> EntropyLSTM:
     """Train an ``EntropyLSTM`` model.
 
@@ -69,6 +70,7 @@ def train_model(
         batch_size: Samples per batch.
 
         device: Optional ``torch`` device for computation.
+        show_progress: Whether to display a progress bar during training.
 
     Returns:
         The trained ``EntropyLSTM`` instance.
@@ -84,7 +86,12 @@ def train_model(
         hidden_dim=hidden_dim,
     ).to(device)
     trainer = Trainer(model, learning_rate=learning_rate, device=device)
-    trainer.train(dataset, epochs=epochs, batch_size=batch_size)
+    trainer.train(
+        dataset,
+        epochs=epochs,
+        batch_size=batch_size,
+        show_progress=show_progress,
+    )
     # Trained model ready for evaluation
     return model
 
@@ -100,6 +107,7 @@ def update_with_new_month(
     learning_rate: float,
     device: torch.device | None = None,
     lazy: bool = False,
+    show_progress: bool = True,
 ) -> dict[str, float]:
     """Fine-tune ``model`` on new data and compute entropies.
 
@@ -113,6 +121,9 @@ def update_with_new_month(
         fine_tune_epochs: Number of fine-tuning epochs.
         learning_rate: Optimiser learning rate.
         device: Optional ``torch`` device for computation.
+        lazy: Whether to lazily pad the dataset.
+        show_progress: Whether to display progress bars for training and
+            entropy computation.
 
     Returns:
         Entropy metrics for the updated model.
@@ -137,11 +148,18 @@ def update_with_new_month(
     model_old.load_state_dict(model.state_dict())
 
     trainer = Trainer(model, learning_rate=learning_rate, device=device)
-    trainer.fine_tune(new_dataset, epochs=fine_tune_epochs, batch_size=32)
+    trainer.fine_tune(
+        new_dataset,
+        epochs=fine_tune_epochs,
+        batch_size=32,
+        show_progress=show_progress,
+    )
 
     calculator = NewsModelUpdateCalculator(model_old, model, device=device)
     # Compare old and updated models on the new data
-    return calculator.compute_entropies(new_dataset)
+    return calculator.compute_entropies(
+        new_dataset, show_progress=show_progress
+    )
 
 
 def rolling_pipeline(
@@ -151,6 +169,7 @@ def rolling_pipeline(
     seq_len: int = 100,
     train_window_size: int = 6,
     lazy: bool = False,
+    show_progress: bool = True,
 ):
     """Run a rolling training and forecasting pipeline.
 
@@ -160,6 +179,9 @@ def rolling_pipeline(
         output_dir: Directory where the CSV results are written.
         seq_len: Sequence length used when constructing datasets.
         train_window_size: Number of months used for each training window.
+        lazy: Whether to lazily pad datasets.
+        show_progress: Whether to display progress bars during training and
+            evaluation.
 
     This function trains a fresh model for each window of ``train_window_size``
     months, evaluates it on the following month and appends the entropies to
@@ -200,6 +222,7 @@ def rolling_pipeline(
             epochs=train_epochs,
             batch_size=batch_size,
             device=device,
+            show_progress=show_progress,
         )
 
         # Load new month's data
@@ -215,6 +238,7 @@ def rolling_pipeline(
             learning_rate=learning_rate,
             device=device,
             lazy=lazy,
+            show_progress=show_progress,
         )
         entropies["month"] = current_month
         results.append(entropies)
@@ -287,6 +311,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Defer dataset padding to reduce memory usage",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 
@@ -308,6 +339,7 @@ def main(argv: list[str] | None = None) -> None:
         seq_len=args.seq_len,
         train_window_size=args.train_window_size,
         lazy=args.lazy,
+        show_progress=args.progress,
     )
 
 

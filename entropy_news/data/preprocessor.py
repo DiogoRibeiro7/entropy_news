@@ -104,6 +104,7 @@ class TextPreprocessor:
         glove_path: str,
         embedding_dim: int | None = None,
         seed: int | None = None,
+        show_progress: bool = False,
     ) -> None:
         """Load pre-trained GloVe vectors and create ``embedding_matrix``.
 
@@ -112,6 +113,7 @@ class TextPreprocessor:
             embedding_dim: Desired vector dimension. If ``None``, it is
                 inferred from the first line of the file.
             seed: Optional random seed for deterministic initialisation.
+            show_progress: Whether to display a loading progress bar.
 
         Raises:
             FileNotFoundError: If ``glove_path`` does not exist.
@@ -148,7 +150,13 @@ class TextPreprocessor:
             if idx is not None and len(vector) == embedding_dim:
                 self.embedding_matrix[idx] = vector
 
-            for line in f:
+            iterator = f
+            if show_progress:
+                from tqdm import tqdm
+
+                iterator = tqdm(f, desc="Loading GloVe", unit="vec")
+
+            for line in iterator:
                 values = line.strip().split()
                 if len(values) < embedding_dim + 1:
                     logger.warning("Skipping malformed line: %s", line.strip())
