@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
+from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
 from entropy_news.utils import get_device
@@ -37,6 +38,8 @@ class Trainer:
         val_dataset: Optional[Dataset] = None,
         early_stopping: bool = False,
         patience: int = 5,
+        start_epoch: int = 0,
+        checkpoint_path: str | Path | None = None,
     ) -> None:
         """Train ``self.model`` using ``dataset``.
 
@@ -48,6 +51,9 @@ class Trainer:
             early_stopping: Whether to stop when validation loss stops
                 improving.
             patience: Epochs to wait for improvement before stopping.
+            start_epoch: Epoch to resume training from (zero-indexed).
+            checkpoint_path: Optional file path to store checkpoints after each
+                epoch.
         """
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         val_loader = (
@@ -58,7 +64,7 @@ class Trainer:
         best_val_loss = float("inf")
         epochs_no_improve = 0
 
-        for epoch in range(1, epochs + 1):
+        for epoch in range(start_epoch + 1, epochs + 1):
             total_loss = 0
             loop = tqdm(loader, desc=f"Epoch {epoch}/{epochs}", leave=False)
             for x_batch, y_batch in loop:
@@ -98,6 +104,9 @@ class Trainer:
                     )
                     break
 
+            if checkpoint_path:
+                self.save_checkpoint(checkpoint_path, epoch)
+
     def fine_tune(self, new_dataset: Dataset, epochs: int = 50, batch_size: int = 128) -> None:
         """Continue training ``self.model`` on ``new_dataset``.
 
@@ -129,3 +138,33 @@ class Trainer:
                 total_loss += loss.item()
         self.model.train()
         return total_loss / len(loader)
+
+    def save_checkpoint(self, path: str | Path, epoch: int) -> None:
+        """Persist model and optimiser state to ``path``.
+
+        Args:
+            path: Destination file for the checkpoint.
+            epoch: Epoch number to record within the checkpoint.
+        """
+        torch.save(
+            {
+                "model_state": self.model.state_dict(),
+                "optimizer_state": self.optimizer.state_dict(),
+                "epoch": epoch,
+            },
+            path,
+        )
+
+    def load_checkpoint(self, path: str | Path) -> int:
+        """Load model and optimiser state from ``path``.
+
+        Args:
+            path: Source checkpoint file.
+
+        Returns:
+            Epoch number stored in the checkpoint.
+        """
+        checkpoint = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(checkpoint["model_state"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+        return int(checkpoint.get("epoch", 0))

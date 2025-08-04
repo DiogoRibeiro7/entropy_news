@@ -50,6 +50,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Defer dataset padding to reduce memory usage",
     )
+    parser.add_argument(
+        "--checkpoint",
+        default=None,
+        help="Path to save training checkpoints",
+    )
+    parser.add_argument(
+        "--resume-from",
+        default=None,
+        help="Checkpoint file to resume training from",
+    )
     return parser
 
 
@@ -97,7 +107,21 @@ def main(argv: list[str] | None = None) -> None:
 
     # Train the model
     trainer = Trainer(model, learning_rate=args.learning_rate, device=device)
-    trainer.train(dataset, epochs=args.epochs, batch_size=args.batch_size)
+    start_epoch = 0
+    if args.resume_from:
+        try:
+            start_epoch = trainer.load_checkpoint(args.resume_from)
+            logger.info("Resuming training from epoch %s", start_epoch)
+        except OSError as exc:
+            logger.error("%s", exc)
+            raise SystemExit(1) from exc
+    trainer.train(
+        dataset,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        start_epoch=start_epoch,
+        checkpoint_path=args.checkpoint,
+    )
 
     # Save the model
     torch.save(model.state_dict(), args.model_out)
