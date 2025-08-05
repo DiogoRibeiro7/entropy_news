@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 
-def get_device() -> "torch.device":
-    """Return the default ``torch`` device.
+if TYPE_CHECKING:  # pragma: no cover - import for type checkers only
+    import torch
 
-    Prefers CUDA when available, falling back to CPU otherwise.
+
+def get_device() -> torch.device:
+    """Return the best available :mod:`torch` device.
+
+    Returns:
+        torch.device: ``cuda`` when available, otherwise ``cpu``.
     """
+
     import torch
 
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")

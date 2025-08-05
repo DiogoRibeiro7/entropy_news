@@ -9,6 +9,8 @@ from torch.utils.data import Dataset
 
 
 class NewsDataset(Dataset):
+    """Dataset of tokenised news sequences for language modelling."""
+
     def __init__(
         self,
         encoded_texts: Sequence[Sequence[int]],

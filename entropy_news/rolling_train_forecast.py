@@ -31,6 +31,7 @@ def prepare_training_set(
         base_data_dir: Directory containing ``news_<month>.txt`` files.
         seq_len: Maximum sequence length for the dataset.
         vocab_size: Number of words to keep in the vocabulary.
+        lazy: Whether to lazily pad sequences to reduce memory usage.
 
     Returns:
         Tuple with the prepared dataset and the fitted preprocessor.
@@ -174,8 +175,12 @@ def rolling_pipeline(
     train_window_size: int = 6,
     lazy: bool = False,
     show_progress: bool = True,
-):
+) -> None:
     """Run a rolling training and forecasting pipeline.
+
+    This function trains a fresh model for each window of ``train_window_size``
+    months, evaluates it on the following month and appends the entropies to
+    ``rolling_forecast_results.csv``.
 
     Args:
         months: Sequence of months in ``YYYY-MM`` format.
@@ -187,9 +192,8 @@ def rolling_pipeline(
         show_progress: Whether to display progress bars during training and
             evaluation.
 
-    This function trains a fresh model for each window of ``train_window_size``
-    months, evaluates it on the following month and appends the entropies to
-    ``rolling_forecast_results.csv``.
+    Returns:
+        None
     """
     import pandas as pd
 
