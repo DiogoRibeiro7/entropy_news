@@ -2,9 +2,8 @@
 
 import argparse
 import logging
-import os
-
-from entropy_news.utils import get_device, load_texts, setup_logger
+from entropy_news.utils import setup_logger
+from entropy_news.utils.cli import load_encoded_dataset, load_model_and_vocab
 
 
 logger = logging.getLogger("train_logger")
@@ -58,9 +57,7 @@ def main(argv: list[str] | None = None) -> None:
     Args:
         argv: Optional sequence of command-line arguments.
     """
-    import torch
     import pandas as pd
-    from entropy_news.data import NewsDataset, TextPreprocessor
     from entropy_news.evaluation import NewsModelUpdateCalculator
     from entropy_news.model import EntropyLSTM, Trainer
 
@@ -70,46 +67,26 @@ def main(argv: list[str] | None = None) -> None:
     global logger
     logger = setup_logger("train_logger", args.log_file)
 
-    if not os.path.exists(args.vocab_path):
-        logger.error("Vocabulary file not found: %s", args.vocab_path)
-        raise SystemExit(1)
-
-    if not os.path.exists(args.model_path):
-        logger.error("Model file not found: %s", args.model_path)
-        raise SystemExit(1)
-
-    preprocessor = TextPreprocessor()
     try:
-        preprocessor.load_vocab(args.vocab_path)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to load vocabulary from %s: %s", args.vocab_path, exc)
+        preprocessor, model_old, device = load_model_and_vocab(
+            args.vocab_path,
+            args.model_path,
+            args.embed_dim,
+            args.hidden_dim,
+            args.num_layers,
+            args.dropout,
+        )
+    except OSError as exc:
+        logger.error("%s", exc)
         raise SystemExit(1) from exc
 
     try:
-        texts = load_texts(args.new_data)
+        new_dataset = load_encoded_dataset(
+            preprocessor, args.new_data, seq_len=args.seq_len, lazy=args.lazy
+        )
     except (OSError, ValueError) as exc:
         logger.error("%s", exc)
         raise SystemExit(1) from exc
-    encoded = [preprocessor.encode(t) for t in texts]
-    new_dataset = NewsDataset(
-        encoded, seq_len=args.seq_len, in_memory=not args.lazy
-    )
-
-    device = get_device()
-    # Load previous model
-    model_old = EntropyLSTM(
-        vocab_size=len(preprocessor.vocab),
-        embed_dim=args.embed_dim,
-        hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
-        dropout=args.dropout,
-    ).to(device)
-    try:
-        state_dict = torch.load(args.model_path)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to load model from %s: %s", args.model_path, exc)
-        raise SystemExit(1) from exc
-    model_old.load_state_dict(state_dict)
 
     # Train a new model with the latest data
     model_new = EntropyLSTM(
@@ -119,10 +96,9 @@ def main(argv: list[str] | None = None) -> None:
         num_layers=args.num_layers,
         dropout=args.dropout,
     ).to(device)
-    model_new.load_state_dict(state_dict)
+    model_new.load_state_dict(model_old.state_dict())
 
     # Brief fine-tuning to simulate a model update
-    from entropy_news.model import Trainer
     trainer = Trainer(model_new, device=device)
     trainer.fine_tune(
         new_dataset,

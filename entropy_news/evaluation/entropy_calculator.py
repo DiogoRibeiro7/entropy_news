@@ -47,13 +47,11 @@ class EntropyCalculator:
                 y_batch = y_batch.to(self.device)
 
                 logits = self.model(x_batch)
-                probs = torch.softmax(logits, dim=-1)
-
-                token_probs = probs.gather(2, y_batch.unsqueeze(-1)).squeeze()
-                log_token_probs = torch.log(token_probs + 1e-10)
+                log_probs = torch.log_softmax(logits, dim=-1)
+                token_log_probs = log_probs.gather(2, y_batch.unsqueeze(-1)).squeeze()
 
                 mask = (y_batch != 0)  # Ignore <PAD> tokens
-                total_log_prob += (log_token_probs * mask).sum().item()
+                total_log_prob += (token_log_probs * mask).sum().item()
                 total_tokens += mask.sum().item()
 
         entropy = -total_log_prob / total_tokens if total_tokens > 0 else float("inf")

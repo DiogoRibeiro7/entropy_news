@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-
-from entropy_news.utils import get_device, load_texts, setup_logger
+from entropy_news.utils import setup_logger
+from entropy_news.utils.cli import load_encoded_dataset, load_model_and_vocab
 
 logger = logging.getLogger("eval_logger")
 
@@ -79,51 +78,29 @@ def main(argv: list[str] | None = None) -> None:
     global logger
     logger = setup_logger("eval_logger", args.log_file)
 
-    if not os.path.exists(args.vocab_path):
-        logger.error("Vocabulary file not found: %s", args.vocab_path)
-        raise SystemExit(1)
-
-    if not os.path.exists(args.model_path):
-        logger.error("Model file not found: %s", args.model_path)
-        raise SystemExit(1)
-
-    import pandas as pd
-    import torch
-    from entropy_news.data import NewsDataset, TextPreprocessor
-    from entropy_news.evaluation import EntropyCalculator
-    from entropy_news.model import EntropyLSTM
-
-    preprocessor = TextPreprocessor()
     try:
-        preprocessor.load_vocab(args.vocab_path)
-    except Exception as exc:  # noqa: BLE001 - broad catch for user friendliness
-        logger.error("Failed to load vocabulary from %s: %s", args.vocab_path, exc)
+        preprocessor, model, device = load_model_and_vocab(
+            args.vocab_path,
+            args.model_path,
+            args.embed_dim,
+            args.hidden_dim,
+            args.num_layers,
+            args.dropout,
+        )
+    except OSError as exc:
+        logger.error("%s", exc)
         raise SystemExit(1) from exc
 
     try:
-        texts = load_texts(args.data)
+        dataset = load_encoded_dataset(
+            preprocessor, args.data, seq_len=args.seq_len, lazy=args.lazy
+        )
     except (OSError, ValueError) as exc:
         logger.error("%s", exc)
         raise SystemExit(1) from exc
-    encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(
-        encoded, seq_len=args.seq_len, in_memory=not args.lazy
-    )
 
-    device = get_device()
-    model = EntropyLSTM(
-        vocab_size=len(preprocessor.vocab),
-        embed_dim=args.embed_dim,
-        hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
-        dropout=args.dropout,
-    ).to(device)
-    try:
-        state_dict = torch.load(args.model_path)
-    except Exception as exc:  # noqa: BLE001 - catch all torch load errors
-        logger.error("Failed to load model from %s: %s", args.model_path, exc)
-        raise SystemExit(1) from exc
-    model.load_state_dict(state_dict)
+    import pandas as pd
+    from entropy_news.evaluation import EntropyCalculator
 
     # Compute entropy and perplexity
     calculator = EntropyCalculator(model, device=device)
