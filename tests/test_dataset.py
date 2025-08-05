@@ -41,7 +41,7 @@ def test_lazy_loading_behaves_like_eager() -> None:
 
     sequences = [[1, 2, 3], [4, 5, 6, 7]]
     eager = NewsDataset(sequences, seq_len=3)
-    lazy = NewsDataset(sequences, seq_len=3, lazy=True)
+    lazy = NewsDataset(sequences, seq_len=3, in_memory=False)
 
     assert len(lazy) == len(eager)
     for i in range(len(eager)):

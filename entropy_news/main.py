@@ -101,7 +101,9 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(encoded, seq_len=args.seq_len, lazy=args.lazy)
+    dataset = NewsDataset(
+        encoded, seq_len=args.seq_len, in_memory=not args.lazy
+    )
 
     device = get_device()
     # Configure the LSTM model

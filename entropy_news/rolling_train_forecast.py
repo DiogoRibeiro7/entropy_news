@@ -42,7 +42,9 @@ def prepare_training_set(
     preprocessor = TextPreprocessor(vocab_size=vocab_size)
     preprocessor.build_vocab(texts)
     encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(encoded, seq_len=seq_len, lazy=lazy)
+    dataset = NewsDataset(
+        encoded, seq_len=seq_len, in_memory=not lazy
+    )
     # Return both the processed dataset and the fitted preprocessor
     return dataset, preprocessor
 
@@ -137,7 +139,9 @@ def update_with_new_month(
 
     encoded_new = [preprocessor.encode(t) for t in new_texts]
     # Dataset representing the new month's articles
-    new_dataset = NewsDataset(encoded_new, seq_len=seq_len, lazy=lazy)
+    new_dataset = NewsDataset(
+        encoded_new, seq_len=seq_len, in_memory=not lazy
+    )
 
     # Clone current parameters before fine-tuning
     model_old = EntropyLSTM(
