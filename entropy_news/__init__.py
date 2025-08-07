@@ -25,7 +25,18 @@ if TYPE_CHECKING:  # pragma: no cover - help type checkers only
     from .evaluation.news_model_update import NewsModelUpdateCalculator
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
+    """Dynamically import and return top-level package attributes.
+
+    Args:
+        name: Requested attribute name.
+
+    Returns:
+        Imported object corresponding to ``name``.
+
+    Raises:
+        AttributeError: If ``name`` is not a valid top-level attribute.
+    """
     if name == "TextPreprocessor" or name == "NewsDataset":
         from .data import preprocessor, dataset
 

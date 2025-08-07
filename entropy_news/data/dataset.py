@@ -1,41 +1,51 @@
 # entropy_news/data/dataset.py
 
+from collections.abc import Sequence
+
 import torch
+import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
-from typing import List
+
 
 class NewsDataset(Dataset):
-    def __init__(self, encoded_texts: List[List[int]], seq_len: int = 100):
-        """Store padded token sequences for language-model training.
+    """Dataset of tokenised news sequences for language modelling."""
+
+    def __init__(
+        self,
+        encoded_texts: Sequence[Sequence[int]],
+        seq_len: int = 100,
+        in_memory: bool = True,
+    ) -> None:
+        """Store token sequences for language-model training.
 
         Args:
             encoded_texts: Tokenized texts to be padded.
             seq_len: Maximum length of each sequence in tokens.
+            in_memory: Whether to pre-pad all sequences and keep them in
+                memory. For large datasets set to ``False`` to pad on demand.
         """
         self.seq_len = seq_len
-        # Pre-pad all sequences so ``__getitem__`` can simply slice
-        self.data = [self.pad_sequence(seq) for seq in encoded_texts]
-
-    def pad_sequence(self, seq: List[int]) -> torch.Tensor:
-        """Pad or truncate ``seq`` to ``seq_len + 1`` tokens.
-
-        Args:
-            seq: List of token IDs representing one article.
-
-        Returns:
-            Tensor of length ``seq_len + 1`` ready for model input.
-        """
-        if len(seq) < self.seq_len + 1:
-            # Append PAD tokens if sequence is too short
-            seq += [0] * (self.seq_len + 1 - len(seq))
+        self.encoded_texts = [list(seq) for seq in encoded_texts]
+        if in_memory:
+            seq_tensors = [
+                torch.tensor(seq[: seq_len + 1], dtype=torch.long)
+                for seq in self.encoded_texts
+            ]
+            if seq_tensors:
+                padded = pad_sequence(seq_tensors, batch_first=True, padding_value=0)
+                if padded.size(1) < seq_len + 1:
+                    pad_width = seq_len + 1 - padded.size(1)
+                    padded = F.pad(padded, (0, pad_width))
+                self.data = padded
+            else:
+                self.data = torch.zeros(0, seq_len + 1, dtype=torch.long)
         else:
-            # Trim long sequences
-            seq = seq[: self.seq_len + 1]
-        return torch.Tensor(seq).long()
+            self.data = None
 
     def __len__(self) -> int:
         """Return the number of stored sequences."""
-        return len(self.data)
+        return len(self.encoded_texts)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Retrieve one training example.
@@ -47,7 +57,13 @@ class NewsDataset(Dataset):
             Tuple ``(x, y)`` where ``x`` is the input sequence and ``y`` is the
             target sequence shifted by one token.
         """
-        full_seq = self.data[idx]
-        # Targets are inputs shifted by one token
+        if self.data is not None:
+            full_seq = self.data[idx]
+        else:
+            seq = self.encoded_texts[idx][: self.seq_len + 1]
+            full_seq = torch.tensor(seq, dtype=torch.long)
+            if full_seq.size(0) < self.seq_len + 1:
+                pad_width = self.seq_len + 1 - full_seq.size(0)
+                full_seq = F.pad(full_seq, (0, pad_width))
         return full_seq[:-1], full_seq[1:]
 

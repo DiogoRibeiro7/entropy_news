@@ -5,7 +5,7 @@ import os
 import logging
 import json
 from collections import Counter
-from typing import List, Dict, Tuple
+from typing import Dict, List
 
 from entropy_news.types import EmbeddingMatrix
 
@@ -100,7 +100,11 @@ class TextPreprocessor:
         return " ".join([self.reverse_vocab.get(idx, "<UNK>") for idx in ids])
 
     def load_glove_embeddings(
-        self, glove_path: str, embedding_dim: int | None = None
+        self,
+        glove_path: str,
+        embedding_dim: int | None = None,
+        seed: int | None = None,
+        show_progress: bool = False,
     ) -> None:
         """Load pre-trained GloVe vectors and create ``embedding_matrix``.
 
@@ -108,10 +112,12 @@ class TextPreprocessor:
             glove_path: Path to the GloVe text file.
             embedding_dim: Desired vector dimension. If ``None``, it is
                 inferred from the first line of the file.
+            seed: Optional random seed for deterministic initialisation.
+            show_progress: Whether to display a loading progress bar.
 
         Raises:
             FileNotFoundError: If ``glove_path`` does not exist.
-            ValueError: If the file is empty or contains malformed lines.
+            ValueError: If the file is empty, malformed, or not valid UTF-8.
         """
 
         logger.info("Loading GloVe embeddings...")
@@ -121,41 +127,55 @@ class TextPreprocessor:
             logger.error(msg)
             raise FileNotFoundError(msg)
 
-        # Collect embeddings keyed by word
-        embeddings_index: Dict[str, np.ndarray] = {}
+        rng = np.random.default_rng(seed)
 
-        with open(glove_path, "r", encoding="utf-8") as f:
-            first_line = f.readline().strip()
-            if not first_line:
-                raise ValueError("GloVe file is empty")
+        try:
+            with open(glove_path, "r", encoding="utf-8") as f:
+                first_line = f.readline().strip()
+                if not first_line:
+                    raise ValueError("GloVe file is empty")
 
-            parts = first_line.split()
-            if len(parts) < 2:
-                raise ValueError(f"Malformed line in GloVe file: {first_line}")
+                parts = first_line.split()
+                if len(parts) < 2:
+                    raise ValueError(f"Malformed line in GloVe file: {first_line}")
 
-            detected_dim = len(parts) - 1
-            if embedding_dim is None:
-                embedding_dim = detected_dim
+                detected_dim = len(parts) - 1
+                if embedding_dim is None:
+                    embedding_dim = detected_dim
 
-            word = parts[0]
-            vector = np.asarray(parts[1:], dtype="float32")[:embedding_dim]
-            embeddings_index[word] = vector
+                self.embedding_matrix = rng.normal(
+                    0, 1, (len(self.vocab), embedding_dim)
+                ).astype("float32")
 
-            for line in f:
-                values = line.strip().split()
-                if len(values) < embedding_dim + 1:
-                    logger.warning("Skipping malformed line: %s", line.strip())
-                    continue
-                word = values[0]
-                vector = np.asarray(values[1:], dtype="float32")[:embedding_dim]
-                embeddings_index[word] = vector
+                word = parts[0]
+                vector = np.asarray(parts[1:], dtype="float32")[:embedding_dim]
+                idx = self.vocab.get(word)
+                if idx is not None and len(vector) == embedding_dim:
+                    self.embedding_matrix[idx] = vector
 
-        # Initialise with random values then fill available vectors
-        self.embedding_matrix = np.random.normal(0, 1, (len(self.vocab), embedding_dim))
-        for word, idx in self.vocab.items():
-            vector = embeddings_index.get(word)
-            if vector is not None and isinstance(vector, np.ndarray) and len(vector) == embedding_dim:
-                self.embedding_matrix[idx] = vector
+                iterator = f
+                if show_progress:
+                    from tqdm import tqdm
+
+                    iterator = tqdm(f, desc="Loading GloVe", unit="vec")
+
+                for line in iterator:
+                    values = line.strip().split()
+                    if len(values) < embedding_dim + 1:
+                        logger.warning("Skipping malformed line: %s", line.strip())
+                        continue
+                    word = values[0]
+                    vector = np.asarray(values[1:], dtype="float32")[:embedding_dim]
+                    idx = self.vocab.get(word)
+                    if idx is not None and len(vector) == embedding_dim:
+                        self.embedding_matrix[idx] = vector
+        except UnicodeDecodeError as exc:
+            msg = (
+                f"Failed to decode GloVe file {glove_path}. "
+                "Please ensure it's valid UTF-8 text."
+            )
+            logger.error(msg)
+            raise ValueError(msg) from exc
 
         logger.info(
             f"Loaded GloVe embeddings with shape: {self.embedding_matrix.shape}"

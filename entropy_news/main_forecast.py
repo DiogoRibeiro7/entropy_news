@@ -1,11 +1,9 @@
 # entropy_news/main_forecast.py
 
-import pickle
 import argparse
 import logging
-import os
-
-from entropy_news.utils import setup_logger, load_texts
+from entropy_news.utils import setup_logger
+from entropy_news.utils.cli import load_encoded_dataset, load_model_and_vocab
 
 
 logger = logging.getLogger("train_logger")
@@ -18,7 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
         Configured ``argparse.ArgumentParser`` instance.
     """
     parser = argparse.ArgumentParser(description="Forecast entropies from new data")
-    parser.add_argument("--vocab-path", default="output/vocab.pkl", help="Path to saved vocabulary")
+    parser.add_argument("--vocab-path", default="output/vocab.json", help="Path to saved vocabulary")
     parser.add_argument("--model-path", default="output/model_final.pth", help="Path to trained model")
     parser.add_argument("--new-data", default="data/news_new.txt", help="Text file with new news")
     parser.add_argument("--output-csv", default="output/forecast_results.csv", help="Where to store computed entropies")
@@ -39,6 +37,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path to a log file; if omitted only console logging is used",
     )
+    parser.add_argument(
+        "--lazy",
+        action="store_true",
+        help="Defer dataset padding to reduce memory usage",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 def main(argv: list[str] | None = None) -> None:
@@ -47,11 +57,9 @@ def main(argv: list[str] | None = None) -> None:
     Args:
         argv: Optional sequence of command-line arguments.
     """
-    import torch
     import pandas as pd
-    from entropy_news.data import TextPreprocessor, NewsDataset
-    from entropy_news.model import EntropyLSTM, Trainer
     from entropy_news.evaluation import NewsModelUpdateCalculator
+    from entropy_news.model import EntropyLSTM, Trainer
 
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -59,65 +67,51 @@ def main(argv: list[str] | None = None) -> None:
     global logger
     logger = setup_logger("train_logger", args.log_file)
 
-    if not os.path.exists(args.vocab_path):
-        logger.error("Vocabulary file not found: %s", args.vocab_path)
-        raise SystemExit(1)
-
-    if not os.path.exists(args.model_path):
-        logger.error("Model file not found: %s", args.model_path)
-        raise SystemExit(1)
-
-    # Load vocabulary with user-friendly error handling
     try:
-        with open(args.vocab_path, "rb") as f:
-            vocab = pickle.load(f)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to load vocabulary from %s: %s", args.vocab_path, exc)
+        preprocessor, model_old, device = load_model_and_vocab(
+            args.vocab_path,
+            args.model_path,
+            args.embed_dim,
+            args.hidden_dim,
+            args.num_layers,
+            args.dropout,
+        )
+    except OSError as exc:
+        logger.error("%s", exc)
         raise SystemExit(1) from exc
 
-    # Preprocess new data
-    preprocessor = TextPreprocessor()
-    preprocessor.vocab = vocab
-
-    texts = load_texts(args.new_data)
-    encoded = [preprocessor.encode(t) for t in texts]
-    new_dataset = NewsDataset(encoded, seq_len=args.seq_len)
-
-    # Load previous model
-    model_old = EntropyLSTM(
-        vocab_size=len(vocab),
-        embed_dim=args.embed_dim,
-        hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
-        dropout=args.dropout,
-    )
     try:
-        state_dict = torch.load(args.model_path)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to load model from %s: %s", args.model_path, exc)
+        new_dataset = load_encoded_dataset(
+            preprocessor, args.new_data, seq_len=args.seq_len, lazy=args.lazy
+        )
+    except (OSError, ValueError) as exc:
+        logger.error("%s", exc)
         raise SystemExit(1) from exc
-    model_old.load_state_dict(state_dict)
-    model_old = model_old.to(model_old.device)
 
     # Train a new model with the latest data
     model_new = EntropyLSTM(
-        vocab_size=len(vocab),
+        vocab_size=len(preprocessor.vocab),
         embed_dim=args.embed_dim,
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
-    )
-    model_new.load_state_dict(state_dict)
-    model_new = model_new.to(model_new.device)
+    ).to(device)
+    model_new.load_state_dict(model_old.state_dict())
 
     # Brief fine-tuning to simulate a model update
-    from entropy_news.model import Trainer
-    trainer = Trainer(model_new)
-    trainer.fine_tune(new_dataset, epochs=args.fine_tune_epochs, batch_size=args.batch_size)
+    trainer = Trainer(model_new, device=device)
+    trainer.fine_tune(
+        new_dataset,
+        epochs=args.fine_tune_epochs,
+        batch_size=args.batch_size,
+        show_progress=args.progress,
+    )
 
     # Calculate ENT, ENT_news and ENT_model
-    calculator = NewsModelUpdateCalculator(model_old, model_new)
-    entropies = calculator.compute_entropies(new_dataset)
+    calculator = NewsModelUpdateCalculator(model_old, model_new, device=device)
+    entropies = calculator.compute_entropies(
+        new_dataset, show_progress=args.progress
+    )
 
     # Export to CSV
     df = pd.DataFrame([entropies])

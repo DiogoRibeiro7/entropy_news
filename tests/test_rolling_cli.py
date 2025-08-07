@@ -38,3 +38,12 @@ def test_build_parser_defaults() -> None:
     assert args.seq_len == 100
     assert args.train_window_size == 6
     assert args.log_file is None
+    assert args.progress is True
+
+
+def test_build_parser_no_progress() -> None:
+    """Rolling CLI respects `--no-progress`."""
+
+    parser = build_parser()
+    args = parser.parse_args(["2023-03", "--no-progress"])
+    assert args.progress is False

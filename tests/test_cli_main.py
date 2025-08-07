@@ -39,6 +39,15 @@ def test_build_train_parser_defaults() -> None:
     assert args.seq_len == 100
     assert args.dropout == 0.1
     assert args.log_file is None
+    assert args.progress is True
+
+
+def test_build_train_parser_no_progress() -> None:
+    """`--no-progress` disables progress bars."""
+
+    parser = build_train_parser()
+    args = parser.parse_args(["--no-progress"])
+    assert args.progress is False
 
 
 def test_build_forecast_parser_defaults() -> None:
@@ -49,3 +58,12 @@ def test_build_forecast_parser_defaults() -> None:
     assert args.seq_len == 100
     assert args.batch_size == 1
     assert args.log_file is None
+    assert args.progress is True
+
+
+def test_build_forecast_parser_no_progress() -> None:
+    """Forecast parser should handle `--no-progress`."""
+
+    parser = build_forecast_parser()
+    args = parser.parse_args(["--no-progress"])
+    assert args.progress is False

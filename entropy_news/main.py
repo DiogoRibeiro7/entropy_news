@@ -1,10 +1,9 @@
 # entropy_news/main.py
 
-import pickle
 import argparse
 import logging
 
-from entropy_news.utils import setup_logger, load_texts
+from entropy_news.utils import get_device, load_texts, setup_logger
 
 logger = logging.getLogger("train_logger")
 
@@ -39,13 +38,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="File to save the trained model",
     )
     parser.add_argument(
-        "--vocab-out", default="output/vocab.pkl", help="Where to store the vocabulary"
+        "--vocab-out", default="output/vocab.json", help="Where to store the vocabulary"
     )
     parser.add_argument(
         "--log-file",
         default=None,
         help="Optional path to a log file; if omitted only console logging is used",
     )
+    parser.add_argument(
+        "--lazy",
+        action="store_true",
+        help="Defer dataset padding to reduce memory usage",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        default=None,
+        help="Path to save training checkpoints",
+    )
+    parser.add_argument(
+        "--resume-from",
+        default=None,
+        help="Checkpoint file to resume training from",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 
@@ -65,17 +86,26 @@ def main(argv: list[str] | None = None) -> None:
     global logger
     logger = setup_logger("train_logger", args.log_file)
 
-    # Load training data
-    texts = load_texts(args.train_data)
+    # Load training data with clearer error reporting
+    try:
+        texts = load_texts(args.train_data)
+    except (OSError, ValueError) as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
 
     # Preprocess texts and build vocabulary
     preprocessor = TextPreprocessor(vocab_size=args.vocab_size)
     preprocessor.build_vocab(texts)
-    preprocessor.load_glove_embeddings(args.glove_path, args.embed_dim)
+    preprocessor.load_glove_embeddings(
+        args.glove_path, args.embed_dim, show_progress=args.progress
+    )
 
     encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(encoded, seq_len=args.seq_len)
+    dataset = NewsDataset(
+        encoded, seq_len=args.seq_len, in_memory=not args.lazy
+    )
 
+    device = get_device()
     # Configure the LSTM model
     model = EntropyLSTM(
         vocab_size=len(preprocessor.vocab),
@@ -84,17 +114,37 @@ def main(argv: list[str] | None = None) -> None:
         num_layers=args.num_layers,
         dropout=args.dropout,
         embedding_matrix=preprocessor.embedding_matrix,
-    )
-    model = model.to(model.device)
+    ).to(device)
 
     # Train the model
-    trainer = Trainer(model, learning_rate=args.learning_rate)
-    trainer.train(dataset, epochs=args.epochs, batch_size=args.batch_size)
+    trainer = Trainer(model, learning_rate=args.learning_rate, device=device)
+    start_epoch = 0
+    if args.resume_from:
+        try:
+            start_epoch = trainer.load_checkpoint(args.resume_from)
+            logger.info("Resuming training from epoch %s", start_epoch)
+        except OSError as exc:
+            logger.error("%s", exc)
+            raise SystemExit(1) from exc
+    trainer.train(
+        dataset,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        start_epoch=start_epoch,
+        checkpoint_path=args.checkpoint,
+        show_progress=args.progress,
+    )
 
-    # Save the model
-    torch.save(model.state_dict(), args.model_out)
-    with open(args.vocab_out, "wb") as f:
-        pickle.dump(preprocessor.vocab, f)
+    # Save the model and vocabulary, ensuring directories exist
+    from pathlib import Path
+
+    model_path = Path(args.model_out)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), model_path)
+
+    vocab_path = Path(args.vocab_out)
+    vocab_path.parent.mkdir(parents=True, exist_ok=True)
+    preprocessor.save_vocab(str(vocab_path))
 
     logger.info("Training complete and model saved.")
 

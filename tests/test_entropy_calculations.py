@@ -38,6 +38,16 @@ def test_compute_entropy_uniform():
     ent = calc.compute_entropy(dataset, batch_size=1)
     assert math.isclose(ent, math.log(10), rel_tol=1e-5)
 
+
+def test_compute_entropy_handles_singleton_batch() -> None:
+    """Ensure squeezing doesn't drop the batch dimension when size is 1."""
+
+    dataset = NewsDataset([[1, 2, 3], [1, 2, 3], [1, 2, 3]], seq_len=2)
+    model = ConstantModel(vocab_size=5)
+    calc = EntropyCalculator(model)
+    ent = calc.compute_entropy(dataset, batch_size=2)
+    assert math.isclose(ent, math.log(5), rel_tol=1e-5)
+
 def test_news_model_update_keys_and_values():
     dataset = NewsDataset([[1, 1, 1]], seq_len=2)
     old_model = ConstantModel(vocab_size=5)

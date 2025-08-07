@@ -17,7 +17,7 @@ jobs:
           pip install --no-cache-dir poetry
       - name: Install dependencies
         run: |
-          poetry install --no-interaction
+          poetry install --no-interaction --with dev
       - name: Run tests
         run: |
           poetry run pytest --cov=entropy_news -q

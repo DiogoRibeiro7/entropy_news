@@ -33,9 +33,6 @@ class EntropyLSTM(nn.Module):
 
         super().__init__()
 
-        # Select GPU when available otherwise fall back to CPU
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
         self.num_layers = num_layers
         self.dropout = dropout
 
@@ -66,7 +63,6 @@ class EntropyLSTM(nn.Module):
             Tensor containing raw predictions for each token position.
         """
 
-        x = x.to(self.device)
         # Embed tokens then process through the LSTM
         emb = self.embedding(x)
         output, _ = self.lstm(emb)

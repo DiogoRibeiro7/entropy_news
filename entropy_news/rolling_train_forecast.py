@@ -8,19 +8,21 @@ import os
 import logging
 from typing import TYPE_CHECKING
 
-from entropy_news.utils import load_texts, setup_logger
+from entropy_news.utils import load_texts, setup_logger, get_device
 
 if TYPE_CHECKING:  # pragma: no cover - only for type checkers
     from entropy_news.data import NewsDataset, TextPreprocessor
     from entropy_news.evaluation import NewsModelUpdateCalculator
     from entropy_news.model import EntropyLSTM
-from entropy_news.utils import load_texts, setup_logger
-
 logger = logging.getLogger("train_logger")
 
 
 def prepare_training_set(
-    months: list[str], base_data_dir: str, seq_len: int, vocab_size: int
+    months: list[str],
+    base_data_dir: str,
+    seq_len: int,
+    vocab_size: int,
+    lazy: bool = False,
 ) -> tuple[NewsDataset, TextPreprocessor]:
     """Create a dataset and preprocessor from historical months.
 
@@ -29,6 +31,7 @@ def prepare_training_set(
         base_data_dir: Directory containing ``news_<month>.txt`` files.
         seq_len: Maximum sequence length for the dataset.
         vocab_size: Number of words to keep in the vocabulary.
+        lazy: Whether to lazily pad sequences to reduce memory usage.
 
     Returns:
         Tuple with the prepared dataset and the fitted preprocessor.
@@ -40,7 +43,9 @@ def prepare_training_set(
     preprocessor = TextPreprocessor(vocab_size=vocab_size)
     preprocessor.build_vocab(texts)
     encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(encoded, seq_len=seq_len)
+    dataset = NewsDataset(
+        encoded, seq_len=seq_len, in_memory=not lazy
+    )
     # Return both the processed dataset and the fitted preprocessor
     return dataset, preprocessor
 
@@ -53,6 +58,8 @@ def train_model(
     learning_rate: float,
     epochs: int,
     batch_size: int,
+    device: torch.device | None = None,
+    show_progress: bool = True,
 ) -> EntropyLSTM:
     """Train an ``EntropyLSTM`` model.
 
@@ -65,21 +72,29 @@ def train_model(
         epochs: Number of training epochs.
         batch_size: Samples per batch.
 
+        device: Optional ``torch`` device for computation.
+        show_progress: Whether to display a progress bar during training.
+
     Returns:
         The trained ``EntropyLSTM`` instance.
     """
 
     from entropy_news.model import EntropyLSTM, Trainer
 
+    device = device or get_device()
     # Instantiate a fresh model for this training window
     model = EntropyLSTM(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
         hidden_dim=hidden_dim,
+    ).to(device)
+    trainer = Trainer(model, learning_rate=learning_rate, device=device)
+    trainer.train(
+        dataset,
+        epochs=epochs,
+        batch_size=batch_size,
+        show_progress=show_progress,
     )
-    model = model.to(model.device)
-    trainer = Trainer(model, learning_rate=learning_rate)
-    trainer.train(dataset, epochs=epochs, batch_size=batch_size)
     # Trained model ready for evaluation
     return model
 
@@ -93,7 +108,10 @@ def update_with_new_month(
     hidden_dim: int,
     fine_tune_epochs: int,
     learning_rate: float,
-) -> dict:
+    device: torch.device | None = None,
+    lazy: bool = False,
+    show_progress: bool = True,
+) -> dict[str, float]:
     """Fine-tune ``model`` on new data and compute entropies.
 
     Args:
@@ -105,6 +123,10 @@ def update_with_new_month(
         hidden_dim: Hidden state dimension of the models.
         fine_tune_epochs: Number of fine-tuning epochs.
         learning_rate: Optimiser learning rate.
+        device: Optional ``torch`` device for computation.
+        lazy: Whether to lazily pad the dataset.
+        show_progress: Whether to display progress bars for training and
+            entropy computation.
 
     Returns:
         Entropy metrics for the updated model.
@@ -114,25 +136,35 @@ def update_with_new_month(
     from entropy_news.evaluation import NewsModelUpdateCalculator
     from entropy_news.model import EntropyLSTM, Trainer
 
+    device = device or get_device()
+
     encoded_new = [preprocessor.encode(t) for t in new_texts]
     # Dataset representing the new month's articles
-    new_dataset = NewsDataset(encoded_new, seq_len=seq_len)
+    new_dataset = NewsDataset(
+        encoded_new, seq_len=seq_len, in_memory=not lazy
+    )
 
     # Clone current parameters before fine-tuning
     model_old = EntropyLSTM(
         vocab_size=len(preprocessor.vocab),
         embed_dim=embed_dim,
         hidden_dim=hidden_dim,
-    )
+    ).to(device)
     model_old.load_state_dict(model.state_dict())
-    model_old = model_old.to(model_old.device)
 
-    trainer = Trainer(model, learning_rate=learning_rate)
-    trainer.fine_tune(new_dataset, epochs=fine_tune_epochs, batch_size=32)
+    trainer = Trainer(model, learning_rate=learning_rate, device=device)
+    trainer.fine_tune(
+        new_dataset,
+        epochs=fine_tune_epochs,
+        batch_size=32,
+        show_progress=show_progress,
+    )
 
-    calculator = NewsModelUpdateCalculator(model_old, model)
+    calculator = NewsModelUpdateCalculator(model_old, model, device=device)
     # Compare old and updated models on the new data
-    return calculator.compute_entropies(new_dataset)
+    return calculator.compute_entropies(
+        new_dataset, show_progress=show_progress
+    )
 
 
 def rolling_pipeline(
@@ -141,8 +173,14 @@ def rolling_pipeline(
     output_dir: str,
     seq_len: int = 100,
     train_window_size: int = 6,
-):
+    lazy: bool = False,
+    show_progress: bool = True,
+) -> None:
     """Run a rolling training and forecasting pipeline.
+
+    This function trains a fresh model for each window of ``train_window_size``
+    months, evaluates it on the following month and appends the entropies to
+    ``rolling_forecast_results.csv``.
 
     Args:
         months: Sequence of months in ``YYYY-MM`` format.
@@ -150,10 +188,12 @@ def rolling_pipeline(
         output_dir: Directory where the CSV results are written.
         seq_len: Sequence length used when constructing datasets.
         train_window_size: Number of months used for each training window.
+        lazy: Whether to lazily pad datasets.
+        show_progress: Whether to display progress bars during training and
+            evaluation.
 
-    This function trains a fresh model for each window of ``train_window_size``
-    months, evaluates it on the following month and appends the entropies to
-    ``rolling_forecast_results.csv``.
+    Returns:
+        None
     """
     import pandas as pd
 
@@ -165,6 +205,7 @@ def rolling_pipeline(
     train_epochs = 50
     fine_tune_epochs = 5
     learning_rate = 0.001
+    device = get_device()
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -177,7 +218,7 @@ def rolling_pipeline(
 
         train_months = months[idx - train_window_size : idx]
         train_dataset, preprocessor = prepare_training_set(
-            train_months, base_data_dir, seq_len, vocab_size
+            train_months, base_data_dir, seq_len, vocab_size, lazy=lazy
         )
 
         model = train_model(
@@ -188,6 +229,8 @@ def rolling_pipeline(
             learning_rate=learning_rate,
             epochs=train_epochs,
             batch_size=batch_size,
+            device=device,
+            show_progress=show_progress,
         )
 
         # Load new month's data
@@ -201,6 +244,9 @@ def rolling_pipeline(
             hidden_dim=hidden_dim,
             fine_tune_epochs=fine_tune_epochs,
             learning_rate=learning_rate,
+            device=device,
+            lazy=lazy,
+            show_progress=show_progress,
         )
         entropies["month"] = current_month
         results.append(entropies)
@@ -268,6 +314,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path to a log file; if omitted only console logging is used",
     )
+    parser.add_argument(
+        "--lazy",
+        action="store_true",
+        help="Defer dataset padding to reduce memory usage",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 
@@ -288,6 +346,8 @@ def main(argv: list[str] | None = None) -> None:
         output_dir=args.output_dir,
         seq_len=args.seq_len,
         train_window_size=args.train_window_size,
+        lazy=args.lazy,
+        show_progress=args.progress,
     )
 
 

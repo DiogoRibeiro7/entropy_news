@@ -4,12 +4,9 @@
 from __future__ import annotations
 
 import argparse
-import pickle
 import logging
-import os
-
-
-from entropy_news.utils import setup_logger, load_texts
+from entropy_news.utils import setup_logger
+from entropy_news.utils.cli import load_encoded_dataset, load_model_and_vocab
 
 logger = logging.getLogger("eval_logger")
 
@@ -25,7 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--vocab-path",
-        default="output/vocab.pkl",
+        default="output/vocab.json",
         help="Path to saved vocabulary",
     )
     parser.add_argument(
@@ -54,6 +51,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path to a log file; if omitted only console logging is used",
     )
+    parser.add_argument(
+        "--lazy",
+        action="store_true",
+        help="Defer dataset padding to reduce memory usage",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable progress bars",
+    )
+    parser.set_defaults(progress=True)
     return parser
 
 
@@ -69,56 +78,38 @@ def main(argv: list[str] | None = None) -> None:
     global logger
     logger = setup_logger("eval_logger", args.log_file)
 
-    if not os.path.exists(args.vocab_path):
-        logger.error("Vocabulary file not found: %s", args.vocab_path)
-        raise SystemExit(1)
+    try:
+        preprocessor, model, device = load_model_and_vocab(
+            args.vocab_path,
+            args.model_path,
+            args.embed_dim,
+            args.hidden_dim,
+            args.num_layers,
+            args.dropout,
+        )
+    except OSError as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
 
-    if not os.path.exists(args.model_path):
-        logger.error("Model file not found: %s", args.model_path)
-        raise SystemExit(1)
+    try:
+        dataset = load_encoded_dataset(
+            preprocessor, args.data, seq_len=args.seq_len, lazy=args.lazy
+        )
+    except (OSError, ValueError) as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
 
     import pandas as pd
-    import torch
-    from entropy_news.data import TextPreprocessor, NewsDataset
-    from entropy_news.model import EntropyLSTM
     from entropy_news.evaluation import EntropyCalculator
 
-    # Load vocabulary with simple error reporting
-    try:
-        with open(args.vocab_path, "rb") as f:
-            vocab: dict[str, int] = pickle.load(f)
-    except Exception as exc:  # noqa: BLE001 - broad catch for user friendliness
-        logger.error("Failed to load vocabulary from %s: %s", args.vocab_path, exc)
-        raise SystemExit(1) from exc
-
-    # Preprocess evaluation data
-    preprocessor = TextPreprocessor()
-    preprocessor.vocab = vocab
-
-    texts = load_texts(args.data)
-    encoded = [preprocessor.encode(t) for t in texts]
-    dataset = NewsDataset(encoded, seq_len=args.seq_len)
-
-    # Load model with clearer error handling
-    model = EntropyLSTM(
-        vocab_size=len(vocab),
-        embed_dim=args.embed_dim,
-        hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
-        dropout=args.dropout,
-    )
-    try:
-        state_dict = torch.load(args.model_path)
-    except Exception as exc:  # noqa: BLE001 - catch all torch load errors
-        logger.error("Failed to load model from %s: %s", args.model_path, exc)
-        raise SystemExit(1) from exc
-    model.load_state_dict(state_dict)
-    model = model.to(model.device)
-
     # Compute entropy and perplexity
-    calculator = EntropyCalculator(model)
-    entropy = calculator.compute_entropy(dataset, batch_size=args.batch_size)
-    perplex = calculator.compute_perplexity(dataset, batch_size=args.batch_size)
+    calculator = EntropyCalculator(model, device=device)
+    entropy = calculator.compute_entropy(
+        dataset, batch_size=args.batch_size, show_progress=args.progress
+    )
+    perplex = calculator.compute_perplexity(
+        dataset, batch_size=args.batch_size, show_progress=args.progress
+    )
 
     results = {"entropy": entropy, "perplexity": perplex}
 
