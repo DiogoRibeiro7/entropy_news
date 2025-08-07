@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from entropy_news.types import EmbeddingMatrix
-from entropy_news.utils import get_device
 
 class EntropyLSTM(nn.Module):
     def __init__(
@@ -34,7 +33,6 @@ class EntropyLSTM(nn.Module):
 
         super().__init__()
 
-        self.device = get_device()
         self.num_layers = num_layers
         self.dropout = dropout
 
@@ -54,7 +52,6 @@ class EntropyLSTM(nn.Module):
         )
         # Final linear layer projecting to vocabulary size
         self.fc = nn.Linear(hidden_dim, vocab_size)
-        self.to(self.device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute logits for a batch of token indices.
@@ -66,7 +63,6 @@ class EntropyLSTM(nn.Module):
             Tensor containing raw predictions for each token position.
         """
 
-        x = x.to(self.device)
         # Embed tokens then process through the LSTM
         emb = self.embedding(x)
         output, _ = self.lstm(emb)

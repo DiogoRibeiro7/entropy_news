@@ -165,6 +165,9 @@ class Trainer:
             path: Destination file for the checkpoint.
             epoch: Epoch number to record within the checkpoint.
         """
+        path = Path(path)
+        if path.parent:
+            path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
                 "model_state": self.model.state_dict(),

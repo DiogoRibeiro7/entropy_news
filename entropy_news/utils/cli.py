@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import os
 
+try:  # pragma: no cover - torch may not be installed during some checks
+    import torch
+except ModuleNotFoundError:  # pragma: no cover
+    torch = None  # type: ignore
+
 from .device import get_device
 from .io import load_texts
 
@@ -40,7 +45,6 @@ def load_model_and_vocab(
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
-    import torch
     from ..data import TextPreprocessor
     from ..model import EntropyLSTM
 
@@ -59,7 +63,7 @@ def load_model_and_vocab(
         dropout=dropout,
     ).to(device)
     try:
-        state_dict = torch.load(model_path)
+        state_dict = torch.load(model_path, map_location=device)
     except Exception as exc:  # noqa: BLE001
         raise OSError(f"Failed to load model from {model_path}: {exc}") from exc
     model.load_state_dict(state_dict)

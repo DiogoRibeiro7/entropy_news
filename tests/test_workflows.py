@@ -193,3 +193,39 @@ def test_resume_training(tmp_path) -> None:
 
     ckpt = torch.load(checkpoint)
     assert ckpt["epoch"] == 2
+
+
+def test_training_creates_output_dirs(tmp_path) -> None:
+    """Training should create directories for model and vocab outputs."""
+
+    torch = pytest.importorskip("torch")
+
+    train_file = tmp_path / "train.txt"
+    train_file.write_text("hello world\n")
+    glove = tmp_path / "glove.txt"
+    _write_dummy_glove(glove)
+
+    model_out = tmp_path / "nested" / "model" / "model.pth"
+    vocab_out = tmp_path / "nested" / "vocab" / "vocab.json"
+
+    train_main([
+        "--train-data",
+        str(train_file),
+        "--glove-path",
+        str(glove),
+        "--embed-dim",
+        "2",
+        "--hidden-dim",
+        "2",
+        "--epochs",
+        "1",
+        "--batch-size",
+        "1",
+        "--model-out",
+        str(model_out),
+        "--vocab-out",
+        str(vocab_out),
+    ])
+
+    assert model_out.exists()
+    assert vocab_out.exists()

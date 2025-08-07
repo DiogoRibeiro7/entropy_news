@@ -48,7 +48,7 @@ class EntropyCalculator:
 
                 logits = self.model(x_batch)
                 log_probs = torch.log_softmax(logits, dim=-1)
-                token_log_probs = log_probs.gather(2, y_batch.unsqueeze(-1)).squeeze()
+                token_log_probs = log_probs.gather(2, y_batch.unsqueeze(-1)).squeeze(-1)
 
                 mask = (y_batch != 0)  # Ignore <PAD> tokens
                 total_log_prob += (token_log_probs * mask).sum().item()

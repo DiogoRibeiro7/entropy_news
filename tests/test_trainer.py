@@ -62,3 +62,13 @@ def test_early_stopping_triggers(caplog, monkeypatch) -> None:
         )
 
     assert any("Early stopping" in rec.message for rec in caplog.records)
+
+
+def test_save_checkpoint_creates_dirs(tmp_path) -> None:
+    """Trainer.save_checkpoint should make parent directories."""
+
+    model = _zero_lstm(vocab_size=5)
+    trainer = Trainer(model)
+    chk_path = tmp_path / "nested" / "ckpt.pth"
+    trainer.save_checkpoint(chk_path, epoch=1)
+    assert chk_path.exists()

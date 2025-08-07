@@ -3,6 +3,7 @@
 """Basic text file utilities."""
 
 import os
+from pathlib import Path
 from typing import List
 
 
@@ -19,7 +20,10 @@ def save_texts(texts: List[str], file_path: str) -> None:
         OSError: If writing to ``file_path`` fails.
     """
 
-    with open(file_path, "w", encoding="utf-8") as f:
+    path = Path(file_path)
+    if path.parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
         for line in texts:
             stripped = line.strip()
             if stripped:

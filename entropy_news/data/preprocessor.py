@@ -143,7 +143,9 @@ class TextPreprocessor:
                 if embedding_dim is None:
                     embedding_dim = detected_dim
 
-                self.embedding_matrix = rng.normal(0, 1, (len(self.vocab), embedding_dim))
+                self.embedding_matrix = rng.normal(
+                    0, 1, (len(self.vocab), embedding_dim)
+                ).astype("float32")
 
                 word = parts[0]
                 vector = np.asarray(parts[1:], dtype="float32")[:embedding_dim]

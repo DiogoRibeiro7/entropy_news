@@ -135,9 +135,16 @@ def main(argv: list[str] | None = None) -> None:
         show_progress=args.progress,
     )
 
-    # Save the model
-    torch.save(model.state_dict(), args.model_out)
-    preprocessor.save_vocab(args.vocab_out)
+    # Save the model and vocabulary, ensuring directories exist
+    from pathlib import Path
+
+    model_path = Path(args.model_out)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), model_path)
+
+    vocab_path = Path(args.vocab_out)
+    vocab_path.parent.mkdir(parents=True, exist_ok=True)
+    preprocessor.save_vocab(str(vocab_path))
 
     logger.info("Training complete and model saved.")
 

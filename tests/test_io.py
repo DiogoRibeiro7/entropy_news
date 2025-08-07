@@ -13,6 +13,14 @@ def test_save_and_load_texts(tmp_path) -> None:
     assert load_texts(out_file) == ["foo", "bar"]
 
 
+def test_save_texts_creates_dirs(tmp_path) -> None:
+    """``save_texts`` should create parent directories when needed."""
+
+    nested = tmp_path / "nested" / "deep" / "texts.txt"
+    save_texts(["hello"], nested)
+    assert nested.exists()
+
+
 def test_load_texts_missing_file(tmp_path) -> None:
     """Missing input files should raise a clear ``FileNotFoundError``."""
 
