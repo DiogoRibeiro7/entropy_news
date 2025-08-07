@@ -9,7 +9,10 @@ from typing import Dict, List
 
 from entropy_news.types import EmbeddingMatrix
 
-import numpy as np
+try:  # Optional numpy dependency
+    import numpy as np
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +129,9 @@ class TextPreprocessor:
             msg = f"GloVe file not found: {glove_path}"
             logger.error(msg)
             raise FileNotFoundError(msg)
+
+        if np is None:  # pragma: no cover - validated above
+            raise ImportError("numpy is required for loading GloVe embeddings")
 
         rng = np.random.default_rng(seed)
 
