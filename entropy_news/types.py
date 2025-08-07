@@ -1,7 +1,9 @@
 """Shared type aliases for Entropy News."""
 
-from typing import TypeAlias
-import numpy as np
+from typing import Any, TypeAlias
 
-# Matrix of embeddings used by the model
-EmbeddingMatrix: TypeAlias = np.ndarray
+try:  # Optional numpy dependency for type checking
+    import numpy as np
+    EmbeddingMatrix: TypeAlias = np.ndarray
+except ModuleNotFoundError:  # pragma: no cover - fallback when numpy missing
+    EmbeddingMatrix: TypeAlias = Any
