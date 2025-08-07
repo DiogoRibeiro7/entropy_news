@@ -82,6 +82,28 @@ def test_load_glove_embeddings_invalid_encoding(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Failed to decode GloVe file"):
         pre.load_glove_embeddings(glove_file)
 
+
+def test_load_glove_embeddings_seed_reproducible(tmp_path: Path) -> None:
+    """Providing a seed yields deterministic random vectors."""
+
+    glove_file = tmp_path / "glove.txt"
+    glove_file.write_text("known 0.1 0.2\n")
+
+    vocab = {"<PAD>": 0, "<UNK>": 1, "known": 2, "other": 3}
+    reverse = {idx: word for word, idx in vocab.items()}
+
+    pre1 = TextPreprocessor(vocab_size=10)
+    pre1.vocab = vocab
+    pre1.reverse_vocab = reverse
+    pre1.load_glove_embeddings(glove_file, embedding_dim=2, seed=123)
+
+    pre2 = TextPreprocessor(vocab_size=10)
+    pre2.vocab = vocab
+    pre2.reverse_vocab = reverse
+    pre2.load_glove_embeddings(glove_file, embedding_dim=2, seed=123)
+
+    np.testing.assert_array_equal(pre1.embedding_matrix[3], pre2.embedding_matrix[3])
+
 def test_clean_text_and_tokenize() -> None:
     """Cleaning removes punctuation and lowers case."""
 

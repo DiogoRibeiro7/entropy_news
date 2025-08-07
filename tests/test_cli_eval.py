@@ -27,3 +27,12 @@ def test_build_parser_defaults() -> None:
     assert args.batch_size == 1
     assert args.output_csv is None
     assert args.log_file is None
+    assert args.progress is True
+
+
+def test_build_parser_no_progress() -> None:
+    """`--no-progress` should disable progress bars."""
+
+    parser = build_parser()
+    args = parser.parse_args(["--no-progress"])
+    assert args.progress is False

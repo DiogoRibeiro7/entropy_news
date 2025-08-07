@@ -72,3 +72,21 @@ def test_save_checkpoint_creates_dirs(tmp_path) -> None:
     chk_path = tmp_path / "nested" / "ckpt.pth"
     trainer.save_checkpoint(chk_path, epoch=1)
     assert chk_path.exists()
+
+
+def test_load_checkpoint_restores_state(tmp_path) -> None:
+    """Loading a checkpoint restores weights and reports the epoch."""
+
+    torch = pytest.importorskip("torch")
+    model = _zero_lstm(vocab_size=4)
+    trainer = Trainer(model)
+    chk = tmp_path / "ckpt.pth"
+    trainer.save_checkpoint(chk, epoch=3)
+
+    new_model = _zero_lstm(vocab_size=4)
+    new_trainer = Trainer(new_model)
+    epoch = new_trainer.load_checkpoint(chk)
+
+    assert epoch == 3
+    for p_old, p_new in zip(model.parameters(), new_model.parameters()):
+        assert torch.allclose(p_old, p_new)
