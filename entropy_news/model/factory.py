@@ -8,9 +8,11 @@ from .config import ModelConfig
 
 try:  # Optional torch dependency
     from .lstm_entropy import EntropyLSTM
+    from .lstm_attention import EntropyLSTMAttention
     from .transformer_entropy import EntropyTransformer
 except Exception:  # pragma: no cover - when torch missing
     EntropyLSTM = None  # type: ignore
+    EntropyLSTMAttention = None  # type: ignore
     EntropyTransformer = None  # type: ignore
 
 
@@ -44,6 +46,19 @@ class ModelFactory:
                 hidden_dim=config.hidden_dim,
                 num_layers=config.num_layers,
                 dropout=config.dropout,
+            )
+        if config.architecture == "lstm_attention":
+            if EntropyLSTMAttention is None:
+                raise RuntimeError(
+                    "EntropyLSTMAttention requires torch to be installed"
+                )
+            return EntropyLSTMAttention(
+                vocab_size=config.vocab_size,
+                embed_dim=config.embed_dim,
+                hidden_dim=config.hidden_dim,
+                num_layers=config.num_layers,
+                dropout=config.dropout,
+                num_heads=config.num_heads,
             )
         if config.architecture == "transformer":
             if EntropyTransformer is None:

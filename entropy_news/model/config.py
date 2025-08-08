@@ -10,7 +10,8 @@ class ModelConfig:
     This dataclass encapsulates common model hyperparameters and
     provides basic validation and serialization helpers. The
     ``architecture`` field determines which model type to build.
-    Supported values are ``"lstm"`` and ``"transformer"``.
+    Supported values are ``"lstm"``, ``"lstm_attention"``, and
+    ``"transformer"``.
     """
 
     architecture: str
@@ -43,10 +44,16 @@ class ModelConfig:
             raise ValueError("num_layers must be positive")
         if not 0 <= self.dropout < 1:
             raise ValueError("dropout must be in [0, 1)")
-        if self.architecture not in {"lstm", "transformer"}:
+        if self.architecture not in {"lstm", "lstm_attention", "transformer"}:
             raise ValueError(f"Unsupported architecture: {self.architecture}")
         if self.architecture == "transformer" and self.embed_dim % self.num_heads != 0:
-            raise ValueError("embed_dim must be divisible by num_heads for transformer")
+            raise ValueError(
+                "embed_dim must be divisible by num_heads for transformer"
+            )
+        if self.architecture == "lstm_attention" and self.hidden_dim % self.num_heads != 0:
+            raise ValueError(
+                "hidden_dim must be divisible by num_heads for lstm_attention"
+            )
 
     def to_dict(self) -> dict[str, int | float | str]:
         """Serialize configuration to a plain dictionary."""
