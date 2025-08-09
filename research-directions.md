@@ -26,7 +26,7 @@ The relationship between entropy measures and financial markets can be further e
 
 While the current implementation uses LSTM models, several architectural innovations could enhance performance:
 
-- **Attention Mechanisms**: Incorporating attention to better capture long-range dependencies
+- ✅ **Attention Mechanisms**: Incorporating attention to better capture long-range dependencies
 - **Hierarchical Models**: Building models that simultaneously consider word, sentence, and document-level features
 - **Transfer Learning**: Leveraging pre-trained language models for financial text understanding
 - **Multi-task Learning**: Training models to simultaneously predict entropy and other financial metrics
