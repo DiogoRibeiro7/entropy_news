@@ -25,11 +25,11 @@ This document outlines concrete implementation tasks for the next several releas
   - [ ] Create migration tools for existing scripts
 
 ### Documentation
-- [ ] **User Guides**
-  - Create step-by-step tutorial for new users
-  - Add architecture diagrams
-  - Document model selection guidelines
-  - Update CLI documentation
+- [x] **User Guides** ✅
+  - [x] Create step-by-step tutorial for new users
+  - [x] Add architecture diagrams
+  - [x] Document model selection guidelines
+  - [x] Update CLI documentation
 
 ## Release 0.3.0 (Target: November 2025)
 

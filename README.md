@@ -33,6 +33,15 @@ entropy_news/
 └── README.md                  # Documentation and usage instructions
 ```
 
+## 🏗 Architecture Overview
+
+```
+News Texts -> TextPreprocessor -> Dataset -> ModelFactory -> Trainer -> Metrics
+```
+The pipeline cleans and tokenizes raw texts, builds datasets, instantiates a
+model through the configuration-driven `ModelFactory`, trains it with the
+`Trainer`, and finally evaluates entropy-based metrics.
+
 ## ⚙️ Installation
 
 ```bash
@@ -46,6 +55,18 @@ Also download GloVe:
 wget http://nlp.stanford.edu/data/glove.6B.zip
 unzip glove.6B.zip
 ```
+
+## 🧭 Quick Start Tutorial
+
+1. **Prepare Data** – Place your training news in `data/news_train.txt` and
+   download GloVe embeddings as shown above.
+2. **Train** – Run `entropy-news-train` to fit an LSTM on the news corpus.
+3. **Forecast** – Use `entropy-news-forecast` to compute `ENT`, `ENT_news`, and
+   `ENT_model` for new articles.
+4. **Evaluate** – Run `entropy-news-eval` to measure perplexity on held‑out
+   data.
+5. **Iterate** – Adjust hyperparameters or switch architectures via
+   configuration files.
 
 ## 📚 Data
 The training news files referenced in the examples are not distributed with this
@@ -153,6 +174,34 @@ You can also compute perplexity directly using ``EntropyCalculator``:
 calculator = EntropyCalculator(model)
 perplex = calculator.compute_perplexity(dataset)
 ```
+
+## 🧠 Model Selection Guidelines
+
+- **LSTM** – Good baseline for smaller datasets or when GPU resources are
+  limited.
+- **LSTM with Attention** – Keeps recurrent inductive bias while capturing
+  longer‑range dependencies. Use when sequence order matters but context is
+  broad.
+- **Transformer** – Best for large datasets and when parallel training is
+  desired. Requires head dimensions that divide the hidden size evenly.
+
+Choose the architecture by setting `architecture` in `ModelConfig` and passing
+the configuration to `ModelFactory`.
+
+## 🛠 Command-line Interface
+
+The project exposes convenient console entry points:
+
+| Command | Purpose |
+| --- | --- |
+| `entropy-news-train` | Train a model using news text |
+| `entropy-news-forecast` | Forecast entropy measures for new data |
+| `entropy-news-eval` | Evaluate a saved model |
+| `entropy-news-rolling` | Run a rolling‑window training/forecast pipeline |
+
+Each command accepts `--help` to list all options. Key arguments include
+`--train-data` for data paths, `--epochs` and `--batch-size` for training
+control, and `--model-out`/`--output-csv` for result locations.
 
 ## 📝 Logging
 
