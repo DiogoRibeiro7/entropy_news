@@ -57,7 +57,7 @@ Potential data-related collaborations:
 
 - **Financial News Corpus Development**: Creating standardized datasets for benchmarking
 - **Annotation Projects**: Developing labeled datasets for supervised learning approaches
-- **Historical Market Data Integration**: Combining news entropy with comprehensive market data
+- ✅ **Historical Market Data Integration**: Combining news entropy with comprehensive market data
 - **Multi-modal Dataset Creation**: Building datasets that combine text, market data, and other signals
 
 ### 3. Educational Initiatives

@@ -38,7 +38,7 @@ This document outlines concrete implementation tasks for the next several releas
   - [x] Create memory-efficient data loading for large corpora
   - [x] Implement on-the-fly preprocessing
   - [x] Add support for compressed datasets
-  - [ ] Benchmark memory usage improvements
+  - [x] Benchmark memory usage improvements
 
 ### Model Extensions
 - [x] **Multi-head Attention Module** ✅
