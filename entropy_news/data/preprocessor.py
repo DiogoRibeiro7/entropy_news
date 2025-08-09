@@ -8,21 +8,32 @@ from collections import Counter
 from typing import Dict, List
 
 from entropy_news.types import EmbeddingMatrix
+from .tokenizer import Tokenizer, WhitespaceTokenizer
 
-import numpy as np
+try:  # Optional numpy dependency
+    import numpy as np
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
 class TextPreprocessor:
     """Utility for text cleaning and vocabulary management."""
 
-    def __init__(self, vocab_size: int = 10000):
+    def __init__(
+        self,
+        vocab_size: int = 10000,
+        tokenizer: Tokenizer | None = None,
+    ) -> None:
         """Instantiate the preprocessor.
 
         Args:
             vocab_size: Maximum number of words to keep. Defaults to ``10000``.
+            tokenizer: Strategy used for tokenization. Defaults to
+                :class:`WhitespaceTokenizer` when ``None``.
         """
         self.vocab_size = vocab_size
+        self.tokenizer: Tokenizer = tokenizer or WhitespaceTokenizer()
         self.vocab: Dict[str, int] = {}
         self.reverse_vocab: Dict[int, str] = {}
         self.embedding_matrix: EmbeddingMatrix | None = None
@@ -43,15 +54,8 @@ class TextPreprocessor:
         return text
 
     def tokenize(self, text: str) -> List[str]:
-        """Split cleaned ``text`` into tokens.
-
-        Args:
-            text: String returned by :meth:`clean_text`.
-
-        Returns:
-            List of whitespace-separated tokens.
-        """
-        return text.split()
+        """Delegate tokenization to the configured strategy."""
+        return self.tokenizer.tokenize(text)
 
     def build_vocab(self, texts: List[str]) -> None:
         """Populate ``vocab`` with the most frequent words.
@@ -126,6 +130,9 @@ class TextPreprocessor:
             msg = f"GloVe file not found: {glove_path}"
             logger.error(msg)
             raise FileNotFoundError(msg)
+
+        if np is None:  # pragma: no cover - validated above
+            raise ImportError("numpy is required for loading GloVe embeddings")
 
         rng = np.random.default_rng(seed)
 

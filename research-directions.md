@@ -26,7 +26,7 @@ The relationship between entropy measures and financial markets can be further e
 
 While the current implementation uses LSTM models, several architectural innovations could enhance performance:
 
-- **Attention Mechanisms**: Incorporating attention to better capture long-range dependencies
+- ✅ **Attention Mechanisms**: Incorporating attention to better capture long-range dependencies
 - **Hierarchical Models**: Building models that simultaneously consider word, sentence, and document-level features
 - **Transfer Learning**: Leveraging pre-trained language models for financial text understanding
 - **Multi-task Learning**: Training models to simultaneously predict entropy and other financial metrics
@@ -57,7 +57,7 @@ Potential data-related collaborations:
 
 - **Financial News Corpus Development**: Creating standardized datasets for benchmarking
 - **Annotation Projects**: Developing labeled datasets for supervised learning approaches
-- **Historical Market Data Integration**: Combining news entropy with comprehensive market data
+- ✅ **Historical Market Data Integration**: Combining news entropy with comprehensive market data
 - **Multi-modal Dataset Creation**: Building datasets that combine text, market data, and other signals
 
 ### 3. Educational Initiatives
