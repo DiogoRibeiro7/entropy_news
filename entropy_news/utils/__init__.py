@@ -7,6 +7,7 @@ from .device import autocast, cuda_stream, get_cuda_stream, get_device
 from .correlation import correlation, plot_correlation, rolling_correlation
 from .memory import measure_peak_memory
 from .attention import plot_attention_weights
+from .benchmark import benchmark
 
 __all__ = [
     "setup_logger",
@@ -22,4 +23,5 @@ __all__ = [
     "rolling_correlation",
     "plot_attention_weights",
     "measure_peak_memory",
+    "benchmark",
 ]
