@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import json
+from pathlib import Path
 
 
 @dataclass
@@ -62,4 +64,25 @@ class ModelConfig:
     @classmethod
     def from_dict(cls, data: dict[str, int | float | str]) -> ModelConfig:
         """Create a configuration instance from ``data``."""
-        return cls(**data)
+        cfg = cls(**data)
+        cfg.validate()
+        return cfg
+
+    def to_json(self) -> str:
+        """Serialize configuration to a JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> ModelConfig:
+        """Deserialize configuration from a JSON string."""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+
+    def save(self, path: str | Path) -> None:
+        """Write configuration to ``path`` in JSON format."""
+        Path(path).write_text(self.to_json())
+
+    @classmethod
+    def load(cls, path: str | Path) -> ModelConfig:
+        """Load configuration from ``path`` and validate it."""
+        return cls.from_json(Path(path).read_text())
