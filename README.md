@@ -4,6 +4,8 @@ Professional implementation of the methodology from the paper **"New News is Bad
 
 This project computes the **entropy of financial news** using a **Recurrent Neural Network (LSTM)** and uses that signal to predict market returns.
 
+Full documentation is available at [entropy-news.readthedocs.io](https://entropy-news.readthedocs.io/).
+
 ## 📦 Project Structure
 
 ```
