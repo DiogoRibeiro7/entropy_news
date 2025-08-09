@@ -1,5 +1,6 @@
 from .config import ModelConfig
 from .factory import ModelFactory
+from .fusion import ConcatFusion
 
 try:  # Optional torch dependency
     from .lstm_entropy import EntropyLSTM
@@ -19,4 +20,5 @@ __all__ = [
     "Trainer",
     "ModelConfig",
     "ModelFactory",
+    "ConcatFusion",
 ]
