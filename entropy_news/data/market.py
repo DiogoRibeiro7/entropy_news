@@ -6,6 +6,7 @@ import csv
 from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
+import json
 from typing import List, Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -82,4 +83,48 @@ def fetch_yahoo_history(
     for row in reader:
         features = [float(row[col]) for col in selected if row.get(col)]
         records.append(MarketRecord(date=row.get("Date", ""), features=features))
+    return records
+
+
+def fetch_alpha_vantage_history(
+    symbol: str,
+    api_key: str,
+    outputsize: str = "compact",
+    columns: Sequence[str] | None = None,
+) -> List[MarketRecord]:
+    """Download daily price data from Alpha Vantage.
+
+    Args:
+        symbol: Ticker symbol to query.
+        api_key: Alpha Vantage API key.
+        outputsize: "compact" or "full" data range.
+        columns: Optional list of feature column names to load. Defaults to the
+            adjusted close price when omitted.
+
+    Raises:
+        ConnectionError: If the Alpha Vantage request fails.
+        ValueError: If the response is malformed.
+    """
+
+    url = (
+        "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED"
+        f"&symbol={symbol}&apikey={api_key}&outputsize={outputsize}&datatype=json"
+    )
+    try:
+        with urlopen(url) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except URLError as err:  # pragma: no cover - network failure
+        raise ConnectionError("failed to fetch data") from err
+
+    series_key = "Time Series (Daily)"
+    if series_key not in data:
+        raise ValueError("invalid response")
+    timeseries = data[series_key]
+    selected = ["5. adjusted close"] if columns is None else list(columns)
+
+    records: List[MarketRecord] = []
+    for date_str in sorted(timeseries):
+        row = timeseries[date_str]
+        features = [float(row[col]) for col in selected if col in row]
+        records.append(MarketRecord(date=date_str, features=features))
     return records
