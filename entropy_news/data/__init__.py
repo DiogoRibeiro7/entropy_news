@@ -2,7 +2,7 @@
 
 from .preprocessor import TextPreprocessor
 from .tokenizer import Tokenizer, WhitespaceTokenizer
-from .market import MarketRecord, load_market_csv
+from .market import MarketRecord, load_market_csv, fetch_yahoo_history
 
 __all__ = [
     "TextPreprocessor",
@@ -10,6 +10,7 @@ __all__ = [
     "WhitespaceTokenizer",
     "MarketRecord",
     "load_market_csv",
+    "fetch_yahoo_history",
 ]
 
 try:  # Optional torch-dependent datasets

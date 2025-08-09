@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+from datetime import datetime
+from io import StringIO
 from typing import List, Sequence
+from urllib.error import URLError
+from urllib.request import urlopen
 
 
 @dataclass
@@ -32,4 +36,50 @@ def load_market_csv(file_path: str, columns: Sequence[str] | None = None) -> Lis
         for row in reader:
             features = [float(row[col]) for col in selected if col in row and row[col]]
             records.append(MarketRecord(date=row.get("date", ""), features=features))
+    return records
+
+
+def fetch_yahoo_history(
+    symbol: str,
+    start: str,
+    end: str,
+    columns: Sequence[str] | None = None,
+) -> List[MarketRecord]:
+    """Download daily price data from Yahoo Finance.
+
+    Args:
+        symbol: Ticker symbol to query.
+        start: Start date in ``YYYY-MM-DD`` format.
+        end: End date in ``YYYY-MM-DD`` format.
+        columns: Optional list of feature column names to load. All columns
+            except ``Date`` are used when omitted.
+
+    Raises:
+        ConnectionError: If the Yahoo request fails.
+    """
+
+    period1 = int(datetime.strptime(start, "%Y-%m-%d").timestamp())
+    period2 = int(datetime.strptime(end, "%Y-%m-%d").timestamp())
+    url = (
+        "https://query1.finance.yahoo.com/v7/finance/download/"
+        f"{symbol}?period1={period1}&period2={period2}&interval=1d&events=history&includeAdjustedClose=true"
+    )
+    try:
+        with urlopen(url) as response:
+            data = response.read().decode("utf-8")
+    except URLError as err:  # pragma: no cover - network failure
+        raise ConnectionError("failed to fetch data") from err
+
+    reader = csv.DictReader(StringIO(data))
+    if reader.fieldnames is None:
+        return []
+    selected = (
+        [c for c in reader.fieldnames if c != "Date"]
+        if columns is None
+        else list(columns)
+    )
+    records: List[MarketRecord] = []
+    for row in reader:
+        features = [float(row[col]) for col in selected if row.get(col)]
+        records.append(MarketRecord(date=row.get("Date", ""), features=features))
     return records
