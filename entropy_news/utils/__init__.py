@@ -8,6 +8,13 @@ from .correlation import correlation, plot_correlation, rolling_correlation
 from .memory import measure_peak_memory
 from .attention import plot_attention_weights
 from .benchmark import benchmark
+from .migration import legacy_args_to_config, migrate_legacy_json
+from .cli import (
+    ConfigDefaults,
+    ConfigOverrides,
+    load_base_config,
+    resolve_model_config,
+)
 
 __all__ = [
     "setup_logger",
@@ -24,4 +31,10 @@ __all__ = [
     "plot_attention_weights",
     "measure_peak_memory",
     "benchmark",
+    "legacy_args_to_config",
+    "migrate_legacy_json",
+    "ConfigDefaults",
+    "ConfigOverrides",
+    "load_base_config",
+    "resolve_model_config",
 ]

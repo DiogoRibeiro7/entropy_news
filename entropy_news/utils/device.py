@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from typing import Iterator, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - import for type checkers only
@@ -38,8 +38,22 @@ def get_cuda_stream() -> "torch.cuda.Stream | None":
 
 
 @contextmanager
+def _enter_context(ctx: "object") -> Iterator[None]:
+    """Enter ``ctx`` and guarantee a matching ``__exit__`` call."""
+
+    ctx.__enter__()
+    try:
+        yield
+    except BaseException as exc:  # pragma: no cover - passthrough for tests
+        if not ctx.__exit__(type(exc), exc, exc.__traceback__):
+            raise
+    else:
+        ctx.__exit__(None, None, None)
+
+
+@contextmanager
 def cuda_stream(stream: "torch.cuda.Stream | None") -> Iterator[None]:
-    """Context manager that switches to ``stream`` when provided.
+    """Context manager that switches to ``stream`` while the block runs.
 
     Falls back to a no-op when CUDA is unavailable or ``stream`` is ``None``.
     """
@@ -50,11 +64,11 @@ def cuda_stream(stream: "torch.cuda.Stream | None") -> Iterator[None]:
         stream = None
 
     if stream is None:
-        with nullcontext():
-            yield
-    else:  # pragma: no cover - executed only when CUDA is present
-        with torch.cuda.stream(stream):
-            yield
+        yield
+        return
+
+    with _enter_context(torch.cuda.stream(stream)):
+        yield
 
 
 @contextmanager
@@ -71,10 +85,18 @@ def autocast(use_amp: bool = True) -> Iterator[None]:
         use_amp = False
 
     if not use_amp:
-        with nullcontext():
-            yield
+        yield
         return
 
-    device_type = "cuda" if torch.cuda.is_available() else "cpu"
-    with torch.autocast(device_type=device_type):
+    if not torch.cuda.is_available():
+        device_type = "cpu"
+    else:
+        device_type = "cuda"
+
+    autocast_factory = getattr(torch, "autocast", None)
+    if autocast_factory is None:  # pragma: no cover - older PyTorch versions
+        yield
+        return
+
+    with _enter_context(autocast_factory(device_type=device_type)):
         yield

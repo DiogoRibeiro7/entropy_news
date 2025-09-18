@@ -14,6 +14,27 @@ def _write_vocab(path: Path) -> None:
         json.dump({"vocab_size": len(data), "vocab": data}, f)
 
 
+
+
+def test_train_main_missing_glove(tmp_path, caplog) -> None:
+    """Training CLI should gracefully handle missing GloVe files."""
+
+    torch = pytest.importorskip("torch")
+    data_file = tmp_path / "data.txt"
+    data_file.write_text("hello\n")
+    with caplog.at_level("ERROR"):
+        with pytest.raises(SystemExit):
+            train_main([
+                "--train-data",
+                str(data_file),
+                "--glove-path",
+                str(tmp_path / "missing_glove.txt"),
+                "--epochs",
+                "1",
+            ])
+    assert any("GloVe embeddings missing" in rec.message for rec in caplog.records)
+
+
 def test_train_main_missing_data(tmp_path, caplog) -> None:
     """Training CLI should fail with a helpful message when data is missing."""
 

@@ -51,7 +51,7 @@ def test_cuda_stream_context(monkeypatch) -> None:
     with cuda_stream(dummy_stream):
         called.append("body")
 
-    assert called == ["body", "enter", "exit"]
+    assert called == ["enter", "body", "exit"]
 
 
 def test_autocast(monkeypatch) -> None:
@@ -76,4 +76,4 @@ def test_autocast(monkeypatch) -> None:
     with autocast():
         calls.append("body")
 
-    assert calls == ["cuda", "body", "enter", "exit"]
+    assert calls == ["cuda", "enter", "body", "exit"]

@@ -57,6 +57,8 @@ class Trainer:
                 epoch.
             show_progress: Whether to display a progress bar for each epoch.
         """
+        self._ensure_trainable_embeddings()
+
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         val_loader = (
             DataLoader(val_dataset, batch_size=batch_size) if val_dataset else None
@@ -113,6 +115,21 @@ class Trainer:
 
             if checkpoint_path:
                 self.save_checkpoint(checkpoint_path, epoch)
+
+    def _ensure_trainable_embeddings(self) -> None:
+        """Jitter embedding weights when they are entirely zero."""
+
+        embed = getattr(self.model, "embed", None) or getattr(
+            self.model, "embedding", None
+        )
+        weight = getattr(embed, "weight", None) if embed is not None else None
+        if weight is None or not isinstance(weight, torch.Tensor):
+            return
+        if not weight.requires_grad:
+            return
+        if torch.count_nonzero(weight).item() == 0:
+            with torch.no_grad():
+                weight.uniform_(-1e-3, 1e-3)
 
     def fine_tune(
         self,

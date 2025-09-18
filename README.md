@@ -9,30 +9,44 @@ Full documentation is available at [entropy-news.readthedocs.io](https://entropy
 ## 📦 Project Structure
 
 ```
-entropy_news/
-├── data/
-│   ├── preprocessor.py        # Text cleaning, tokenization, vocabulary creation, GloVe loading, vocab save/load
-│   └── dataset.py             # PyTorch Dataset with automatic padding for sequence training
-│
-├── model/
-│   ├── lstm_entropy.py        # LSTM architecture for next-token prediction
-│   └── trainer.py             # Training and fine-tuning with Adam optimizer and CrossEntropyLoss
-│
-├── evaluation/
-│   ├── entropy_calculator.py  # Average entropy computation on new data
-│   └── news_model_update.py   # Decomposition of entropy: ENT, ENT_news, ENT_model
-│
-├── utils/
-│   └── metrics.py             # Auxiliary functions (e.g., perplexity computation)
-│
-├── main.py                    # Main script for training the initial model
-├── main_forecast.py           # Script for predicting ENT, ENT_news, ENT_model, and exporting to CSV
-│
-├── output/
-│   └── (generated models and results)
-│
-├── pyproject.toml             # Project dependencies managed by Poetry
-└── README.md                  # Documentation and usage instructions
+.
+├── docs/                      # Deployment, testing, performance, and data-format guides
+├── docker/                    # Dockerfile and compose profile for containerised runs
+├── entropy_news/
+│   ├── dashboard/
+│   │   └── app.py             # Streamlit analytics with correlation views and exports
+│   ├── data/
+│   │   ├── dataset.py         # In-memory datasets with automatic padding
+│   │   ├── preprocessor.py    # Text cleaning, tokenisation, GloVe loading, vocab save/load
+│   │   └── streaming_dataset.py
+│   │                          # Incremental dataset indexing utilities
+│   ├── evaluation/
+│   │   ├── entropy_calculator.py
+│   │   ├── multimodal_metrics.py
+│   │   └── news_model_update.py
+│   │                          # Metrics for decomposition and multimodal scoring
+│   ├── model/
+│   │   ├── config.py          # Configuration dataclasses with validation helpers
+│   │   ├── distributed.py     # Monitoring, stress, and checkpoint helpers for distributed runs
+│   │   ├── factory.py         # Unified factory for LSTM, attention, and transformer models
+│   │   ├── fusion.py          # Configurable multimodal fusion layers
+│   │   ├── inference.py       # Quantisation and ONNX export utilities
+│   │   ├── lstm_attention.py
+│   │   ├── lstm_entropy.py
+│   │   └── transformer_entropy.py
+│   ├── utils/
+│   │   ├── cli.py             # Shared CLI configuration and checkpoint loading helpers
+│   │   ├── device.py          # CUDA stream / autocast context managers
+│   │   ├── migration.py       # Legacy argument & config migration utilities
+│   │   └── ...
+│   ├── migrate_config.py      # CLI entry-point for migrating legacy configs
+│   ├── main.py                # Training CLI entry-point
+│   ├── main_evaluate.py       # Evaluation CLI entry-point
+│   ├── main_forecast.py       # Forecast CLI entry-point
+│   └── rolling_train_forecast.py
+├── notebooks/                 # Research collateral (e.g., correlation analysis)
+├── tests/                     # Unit, integration, and performance suites
+└── pyproject.toml             # Poetry-managed dependencies
 ```
 
 ## 🏗 Architecture Overview
@@ -69,6 +83,20 @@ unzip glove.6B.zip
    data.
 5. **Iterate** – Adjust hyperparameters or switch architectures via
    configuration files.
+
+## 📊 Interactive Dashboard
+
+Launch the Streamlit dashboard to explore rolling forecast outputs with
+correlation heatmaps, summary statistics, and downloadable reports:
+
+```bash
+streamlit run entropy_news/dashboard/app.py
+```
+
+Filter by month, inspect correlations between `entropy`, `entropy_news`, and
+`entropy_model`, swap between CSV files via the sidebar (or upload new results),
+and export both the filtered dataset and the generated summary report for
+stakeholder distribution.
 
 ## 📚 Data
 The training news files referenced in the examples are not distributed with this
@@ -107,6 +135,10 @@ entropy-news-train --train-data my_train.txt --epochs 10 --batch-size 64 \
                    --learning-rate 0.0005
 ```
 
+You can supply a JSON configuration via `--model-config` to reuse
+Transformer or attention hyperparameters, and the resolved settings are saved to
+`--config-out` for evaluation and forecasting runs.
+
 ### 2. Forecast Entropies
 ```bash
 entropy-news-forecast
@@ -129,6 +161,11 @@ entropy-news-eval
 ```bash
 entropy-news-eval --data other.txt --batch-size 4 --output-csv metrics.csv
 ```
+- For legacy checkpoints saved with ``torch.save(model)``, re-run with
+  ``--allow-unsafe-load`` after verifying the file is trusted; this flag
+  restores the older pickle-based loading path. As we migrate remaining
+  artifacts to safe formats the fallback will be disabled in a future release,
+  so plan to refresh any custom checkpoints accordingly.
 ### 4. Reuse Vocabulary
 You can save the built vocabulary for later runs and reload it instead of
 recomputing every time:
@@ -143,6 +180,49 @@ preprocessor.save_vocab("output/vocab.json")
 # Later
 preprocessor.load_vocab("output/vocab.json")
 ```
+
+
+## 🔃 Migrating Legacy Configurations
+
+Use `python -m entropy_news.migrate_config <legacy.json>` to convert older
+training metadata into the new `ModelConfig` format. The command writes the
+resolved configuration to `output/model_config.json`, which can then be loaded
+by the training, evaluation, forecasting, and rolling CLIs via `--model-config`.
+
+## 🚢 Deployment
+
+A production-focused Dockerfile and compose profile live in the repository. The
+[`deployment` guide](docs/deployment.md) explains how to build the image, export
+quantised/ONNX models with the inference helpers, and run the CLIs inside the
+containerised environment.
+
+## 🧪 Testing
+
+Unit tests remain the default entry point:
+
+```bash
+pytest -q
+```
+
+Integration and performance suites are tagged and can be executed separately:
+
+```bash
+pytest -m integration -q
+pytest -m performance -q
+```
+
+See [`docs/testing_strategy.md`](docs/testing_strategy.md) for the full
+automation plan and CI matrix.
+
+### 🔐 Checkpoint Safety
+
+All CLIs load checkpoints with PyTorch's ``weights_only=True`` safeguard by
+default. This prevents arbitrary pickle execution when consuming untrusted
+artifacts. When you must load legacy checkpoints saved via ``torch.save(model)``,
+explicitly opt-in with ``--allow-unsafe-load`` (or set the
+``ENTROPY_NEWS_ALLOW_UNSAFE_LOAD=1`` environment variable) and ensure that the
+checkpoint originates from a trusted source. The application logs a warning when
+falling back to the unsafe path so operators can audit usage.
 
 ## 📈 Rolling Window Pipeline (Example)
 

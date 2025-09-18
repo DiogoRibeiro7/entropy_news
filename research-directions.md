@@ -22,6 +22,19 @@ The relationship between entropy measures and financial markets can be further e
 - **Extreme Event Prediction**: Investigating entropy patterns before market crashes or rallies
 - **Market Regime Detection**: Using entropy characteristics to identify different market regimes
 
+### 2a. Causal Analysis Initiative (Release 1.0)
+
+- **Joint design sessions**: Coordinate with research partners to formalise
+  hypotheses, instruments, and natural experiments that connect entropy to
+  market outcomes. Outputs feed the `docs/causal_analysis_plan.md` document and
+  companion notebooks.
+- **Prototype workflow**: Use `notebooks/causal_analysis_outline.ipynb` to
+  iterate on dataset assembly, estimator selection (difference-in-differences,
+  instrumental variables, synthetic control), and diagnostic tooling.
+- **Validation criteria**: Establish acceptance metrics (e.g., effect size
+  stability, placebo rejection rates) that will become automated checks in the
+  Release 1.0 testing strategy.
+
 ### 3. Model Architecture Innovations
 
 While the current implementation uses LSTM models, several architectural innovations could enhance performance:
