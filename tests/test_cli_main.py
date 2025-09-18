@@ -3,6 +3,7 @@
 import pytest
 
 from entropy_news.main import build_parser as build_train_parser
+from entropy_news.main_evaluate import build_parser as build_eval_parser
 from entropy_news.main_forecast import build_parser as build_forecast_parser
 
 
@@ -37,7 +38,9 @@ def test_build_train_parser_defaults() -> None:
 
     assert args.epochs == 50
     assert args.seq_len == 100
-    assert args.dropout == 0.1
+    assert args.dropout is None
+    assert args.embed_dim is None
+    assert args.architecture is None
     assert args.log_file is None
     assert args.progress is True
 
@@ -59,6 +62,7 @@ def test_build_forecast_parser_defaults() -> None:
     assert args.batch_size == 1
     assert args.log_file is None
     assert args.progress is True
+    assert args.allow_unsafe_load is False
 
 
 def test_build_forecast_parser_no_progress() -> None:
@@ -67,3 +71,12 @@ def test_build_forecast_parser_no_progress() -> None:
     parser = build_forecast_parser()
     args = parser.parse_args(["--no-progress"])
     assert args.progress is False
+    assert args.allow_unsafe_load is False
+
+
+def test_build_eval_parser_allow_unsafe_flag() -> None:
+    """Evaluation parser should expose the unsafe checkpoint toggle."""
+
+    parser = build_eval_parser()
+    args = parser.parse_args(["--allow-unsafe-load"])
+    assert args.allow_unsafe_load is True

@@ -1,0 +1,10 @@
+version: "3.10"
+services:
+  forecast:
+    build: ..
+    command: ["--help"]
+    working_dir: /app
+    volumes:
+      - ../output:/workspace/output
+    environment:
+      - PYTHONPATH=/app

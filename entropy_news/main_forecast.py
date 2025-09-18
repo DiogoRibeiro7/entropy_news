@@ -2,7 +2,7 @@
 
 import argparse
 import logging
-from entropy_news.utils import setup_logger
+from entropy_news.utils import load_texts, setup_logger
 from entropy_news.utils.cli import load_encoded_dataset, load_model_and_vocab
 
 
@@ -18,14 +18,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Forecast entropies from new data")
     parser.add_argument("--vocab-path", default="output/vocab.json", help="Path to saved vocabulary")
     parser.add_argument("--model-path", default="output/model_final.pth", help="Path to trained model")
+    parser.add_argument("--config-path", default="output/model_config.json", help="Path to saved model configuration")
     parser.add_argument("--new-data", default="data/news_new.txt", help="Text file with new news")
     parser.add_argument("--output-csv", default="output/forecast_results.csv", help="Where to store computed entropies")
     parser.add_argument("--seq-len", type=int, default=100)
-    parser.add_argument("--embed-dim", type=int, default=100)
-    parser.add_argument("--hidden-dim", type=int, default=16)
+    parser.add_argument("--embed-dim", type=int, default=None)
+    parser.add_argument("--hidden-dim", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--num-layers", type=int, default=2, help="Number of LSTM layers")
-    parser.add_argument("--dropout", type=float, default=0.1, help="LSTM dropout between layers")
+    parser.add_argument("--num-layers", type=int, default=None, help="Number of LSTM layers")
+    parser.add_argument("--dropout", type=float, default=None, help="LSTM dropout between layers")
     parser.add_argument(
         "--fine-tune-epochs",
         type=int,
@@ -48,6 +49,14 @@ def build_parser() -> argparse.ArgumentParser:
         dest="progress",
         help="Disable progress bars",
     )
+    parser.add_argument(
+        "--allow-unsafe-load",
+        action="store_true",
+        help=(
+            "Allow falling back to torch.load(..., weights_only=False) for legacy"
+            " checkpoints. Only enable this when the file is trusted."
+        ),
+    )
     parser.set_defaults(progress=True)
     return parser
 
@@ -59,7 +68,7 @@ def main(argv: list[str] | None = None) -> None:
     """
     import pandas as pd
     from entropy_news.evaluation import NewsModelUpdateCalculator
-    from entropy_news.model import EntropyLSTM, Trainer
+    from entropy_news.model import ModelFactory, Trainer
 
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -68,33 +77,43 @@ def main(argv: list[str] | None = None) -> None:
     logger = setup_logger("train_logger", args.log_file)
 
     try:
-        preprocessor, model_old, device = load_model_and_vocab(
+        new_texts = load_texts(args.new_data)
+    except (OSError, ValueError) as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
+
+    try:
+        (
+            preprocessor,
+            model_old,
+            device,
+            config,
+        ) = load_model_and_vocab(
             args.vocab_path,
             args.model_path,
             args.embed_dim,
             args.hidden_dim,
             args.num_layers,
             args.dropout,
-        )
-    except OSError as exc:
-        logger.error("%s", exc)
-        raise SystemExit(1) from exc
-
-    try:
-        new_dataset = load_encoded_dataset(
-            preprocessor, args.new_data, seq_len=args.seq_len, lazy=args.lazy
+            config_path=args.config_path,
+            allow_unsafe_load=args.allow_unsafe_load,
         )
     except (OSError, ValueError) as exc:
         logger.error("%s", exc)
         raise SystemExit(1) from exc
 
+    new_dataset = load_encoded_dataset(
+        preprocessor,
+        args.new_data,
+        seq_len=args.seq_len,
+        lazy=args.lazy,
+        texts=new_texts,
+    )
+
     # Train a new model with the latest data
-    model_new = EntropyLSTM(
-        vocab_size=len(preprocessor.vocab),
-        embed_dim=args.embed_dim,
-        hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
-        dropout=args.dropout,
+    model_new = ModelFactory.create(
+        config,
+        embedding_matrix=None,
     ).to(device)
     model_new.load_state_dict(model_old.state_dict())
 

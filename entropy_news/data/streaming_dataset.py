@@ -82,11 +82,13 @@ class StreamingNewsDataset(Dataset):
         self.total_lines = 0
         with self._open() as f:
             position = f.tell()
-            for i, _ in enumerate(f):
-                if i % self.chunk_size == 0:
+            line = f.readline()
+            while line:
+                if self.total_lines % self.chunk_size == 0:
                     self.chunk_positions.append(position)
+                self.total_lines += 1
                 position = f.tell()
-            self.total_lines = i + 1 if "i" in locals() else 0
+                line = f.readline()
 
     # ------------------------------------------------------------------
     def _load_chunk(self, chunk_idx: int) -> List[torch.Tensor]:

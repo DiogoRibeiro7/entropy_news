@@ -31,6 +31,7 @@ class EntropyLSTMAttention(nn.Module):
         """
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        self.embed = self.embedding
         if embedding_matrix is not None:
             self.embedding.weight.data.copy_(torch.Tensor(embedding_matrix))
             self.embedding.weight.requires_grad = False

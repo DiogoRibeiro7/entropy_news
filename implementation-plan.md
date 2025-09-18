@@ -22,7 +22,7 @@ This document outlines concrete implementation tasks for the next several releas
   - [x] Replace direct parameter passing with configuration objects
   - [x] Implement validation for configuration parameters
   - [x] Add serialization/deserialization of configurations
-  - [ ] Create migration tools for existing scripts
+  - [x] Create migration tools for existing scripts
 
 ### Documentation
 - [x] **User Guides** ✅
@@ -45,21 +45,21 @@ This document outlines concrete implementation tasks for the next several releas
   - [x] Implement attention mechanism for LSTM models
   - [x] Add visualization tools for attention weights
   - [x] Create hybrid LSTM-Attention architecture
-  - [ ] Document performance characteristics
+  - [x] Document performance characteristics
 
 ### Research Tools
 - [x] **Correlation Analysis Module** ✅
   - [x] Create utilities for time series correlation with market data
   - [x] Implement rolling correlation computation
   - [x] Add visualization for correlation patterns
-  - [ ] Create example notebooks demonstrating usage
+  - [x] Create example notebooks demonstrating usage
 
 ### Testing Framework
-- [ ] **Expanded Test Coverage**
-  - Add integration tests for full pipelines
-  - Implement property-based testing for data transformations
-  - Create benchmark tests for performance regression detection
-  - Add CI workflow for performance benchmarking
+- [x] **Expanded Test Coverage** ✅
+  - [x] Add integration tests for full pipelines
+  - [x] Implement property-based testing for data transformations
+  - [x] Create benchmark tests for performance regression detection
+  - [x] Add CI workflow for performance benchmarking
 
 ## Release 0.4.0 (Target: January 2026)
 
@@ -67,59 +67,67 @@ This document outlines concrete implementation tasks for the next several releas
 - [x] **Market Data Integration** ✅
   - [x] Implement data loaders for numerical market features
   - [x] Create fusion layers to combine text and market signals
-  - [ ] Add configurable weighting mechanisms
-  - [ ] Develop evaluation metrics for multi-modal performance
+  - [x] Add configurable weighting mechanisms
+  - [x] Develop evaluation metrics for multi-modal performance
 
 ### Visualization Tools
-- [ ] **Interactive Dashboard**
-  - Create Streamlit-based visualization interface
-  - Implement time series plotting of entropy metrics
-  - Add correlation visualization tools
-  - Create export functionality for reports
+- [x] **Interactive Dashboard** ✅
+  - [x] Create Streamlit-based visualization interface
+  - [x] Implement time series plotting of entropy metrics
+  - [x] Add correlation visualization tools
+  - [x] Create export functionality for reports
 
 ### Model Deployment
-- [ ] **Inference Optimization**
-  - Implement model quantization (INT8/FP16)
-  - Add ONNX export functionality
-  - Create Docker containers for standardized deployment
-  - Document deployment patterns for different environments
+- [x] **Inference Optimization** ✅
+  - [x] Implement model quantization (INT8/FP16)
+  - [x] Add ONNX export functionality
+  - [x] Create Docker containers for standardized deployment
+  - [x] Document deployment patterns for different environments
 
 ### Ecosystem Integration
 - [x] **Financial Data Connectors** ✅
   - [x] Implement Yahoo Finance integration
   - [x] Add Alpha Vantage connector
-  - [ ] Create standardized data import/export formats
-  - [ ] Document API usage patterns
+  - [x] Create standardized data import/export formats
+  - [x] Document API usage patterns
 
 ## Release 1.0.0 (Target: Q2 2026)
 
 ### Enterprise Features
-- [ ] **Scalability Enhancements**
-  - Implement distributed training across multiple nodes
-  - Add checkpoint management for long-running processes
-  - Create monitoring tools for resource usage
-  - Document deployment strategies for different scales
+- [ ] **Enterprise Scalability Milestone**
+  - [ ] **Phase 1 – Architecture & Orchestration Design (Q1 2026)**
+    - Extend existing distributed helpers into a dedicated orchestration layer that can schedule multi-node jobs, manage process groups, and expose health endpoints.
+    - Define configuration schemas for cluster definitions (e.g., node roles, accelerators, topology) and document how they integrate with `entropy_news.model.distributed` utilities.
+  - [ ] **Phase 2 – Runbooks & Deployment Strategies (Q1-Q2 2026)**
+    - Produce deployment runbooks that cover bare-metal, Kubernetes, and cloud-managed training services, including rollback and recovery procedures.
+    - Provide infrastructure-as-code templates (Terraform/Helm outlines) and reference Docker Compose updates so enterprise teams can reproduce the orchestrated environment.
+  - [ ] **Phase 3 – Monitoring & Dashboards (Q2 2026)**
+    - Implement monitoring collectors that emit throughput, gradient health, and checkpoint timings to Prometheus-compatible sinks.
+    - Publish dashboard configurations (Grafana panels and Streamlit monitoring views) that visualize job progress, cluster utilization, and alert thresholds.
+  - [ ] **Phase 4 – Pilot Multi-node Training Workflow (Q2 2026)**
+    - Execute an end-to-end rehearsal using at least three nodes, capturing metrics, logs, and failure playbooks to validate enterprise readiness.
+    - Fold lessons learned back into documentation and automation artifacts before the Release 1.0 freeze.
 
 ### Research Extensions
 - [ ] **Causal Analysis Framework**
-  - Implement structural models for entropy-return relationships
-  - Add counterfactual analysis tools
-  - Create natural experiment evaluation utilities
-  - Document methodological approaches
+  - [ ] Partner with research stakeholders to define causal hypotheses, required datasets, and identification strategies (difference-in-differences, instrumental variables, synthetic controls).
+  - [ ] Draft methodological documentation and literature review summaries in `docs/causal_analysis_plan.md`, keeping assumptions, data requirements, and validation criteria explicit.
+  - [ ] Prototype notebooks (`notebooks/causal_analysis_outline.ipynb`) demonstrating the end-to-end workflow: data assembly, model estimation, diagnostic checks, and policy-relevant interpretations.
+  - [ ] Implement reusable causal modules (propensity scoring, counterfactual simulation, sensitivity analysis) with accompanying unit/integration tests once methodology is validated.
 
 ### User Experience
 - [ ] **Complete Documentation Overhaul**
-  - Create comprehensive API documentation
-  - Add tutorials for common use cases
-  - Implement interactive examples
-  - Create video tutorials for key workflows
+  - [ ] **Seed Phase (Q4 2025)** – Generate API reference skeletons directly from docstrings using Sphinx autodoc, linked from the README structure to keep navigation consistent.
+  - [ ] **Tutorial Phase (Q1 2026)** – Produce interactive tutorials (Jupyter/Streamlit) that walk through training, forecasting, dashboard usage, and distributed deployment rehearsals.
+  - [ ] **Experience Phase (Q1-Q2 2026)** – Expand the documentation site with scenario-driven guides, migration walkthroughs, and operator playbooks sourced from the new runbooks.
+  - [ ] **Media Phase (Q2 2026)** – Record short-form video overviews and embed them alongside the written guides to complete the Release 1.0 onboarding target set.
 
 ### Quality Assurance
 - [ ] **Comprehensive Testing**
-  - Achieve 95%+ test coverage
-  - Implement performance regression testing
-  - Add cross-platform compatibility tests
-  - Create automated stress tests for stability
+  - [ ] Instrument the CI matrix to capture coverage reports (via `pytest --cov`) and fail when the rolling average drops below 95%.
+  - [ ] Expand GitHub Actions runners to include Linux (x86, ARM) and Windows targets, surfacing parity dashboards in build artefacts.
+  - [ ] Automate long-horizon stress tests that execute multi-hour rolling workflows with synthetic spikes, publishing flame graphs and resource traces for regression review.
+  - [ ] Maintain performance regression baselines by persisting benchmark history and alerting when variance exceeds agreed thresholds.
 
 ## Development Guidelines
 

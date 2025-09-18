@@ -1,6 +1,15 @@
 from .config import ModelConfig
 from .factory import ModelFactory
-from .fusion import ConcatFusion
+from .fusion import ConcatFusion, WeightedFusion
+from .inference import export_to_onnx, quantize_dynamic
+from .distributed import (
+    CheckpointManager,
+    TrainingMetrics,
+    init_distributed,
+    monitor_training,
+    stress_test,
+    synchronize_metrics,
+)
 
 try:  # Optional torch dependency
     from .lstm_entropy import EntropyLSTM
@@ -21,4 +30,13 @@ __all__ = [
     "ModelConfig",
     "ModelFactory",
     "ConcatFusion",
+    "WeightedFusion",
+    "quantize_dynamic",
+    "export_to_onnx",
+    "init_distributed",
+    "synchronize_metrics",
+    "monitor_training",
+    "CheckpointManager",
+    "stress_test",
+    "TrainingMetrics",
 ]

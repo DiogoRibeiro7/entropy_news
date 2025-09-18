@@ -37,6 +37,8 @@ class EntropyLSTM(nn.Module):
 
         # Simple embedding layer for token lookups
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        # Provide ``embed`` as a backwards-compatible alias.
+        self.embed = self.embedding
         if embedding_matrix is not None:
             self.embedding.weight.data.copy_(torch.Tensor(embedding_matrix))
             self.embedding.weight.requires_grad = False  # Freezes embeddings
@@ -67,3 +69,4 @@ class EntropyLSTM(nn.Module):
         output, _ = self.lstm(emb)
         logits = self.fc(output)
         return logits
+
