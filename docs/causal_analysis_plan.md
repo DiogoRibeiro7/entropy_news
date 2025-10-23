@@ -38,10 +38,8 @@ acceptance criteria for the Release 1.0 milestone.
 
 ### Notebooks
 
-- `notebooks/causal_analysis_outline.ipynb` (added in this update) introduces a
-  scaffolded workflow for data preparation, model fitting, and sensitivity
-  checks. Researchers can fork the notebook to prototype alternatives without
-  blocking library development.
+- `notebooks/causal_analysis_outline.ipynb` documents the canonical flow for data preparation, model fitting, and sensitivity checks. Researchers can fork the notebook to prototype alternatives without blocking library development.
+- `notebooks/causal_counterfactual_playbook.ipynb` provides a runnable baseline showing how to parameterise scenarios and export counterfactual series for dashboards.
 - Future notebooks will extend the outline with real datasets, parameter
   sweeps, placebo tests, and reporting utilities.
 
@@ -57,6 +55,13 @@ Planned modules (naming subject to review with stakeholders):
   and policy narratives.
 
 These modules will ship once the notebook prototypes stabilise.
+
+
+## Implementation Status (May 2026 Update)
+
+- The research toolkit now ships as `entropy_news.research.causal` with data assembly, estimators, and reporting helpers.
+- A validated synthetic dataset and pytest harness exercise propensity features, DiD, 2SLS, and synthetic control flows.
+- Baseline notebooks demonstrate end-to-end usage and link to the methodological appendix.
 
 ## Methodological Roadmap
 

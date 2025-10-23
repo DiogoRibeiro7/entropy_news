@@ -1,0 +1,30 @@
+# Sample Helm overrides for deploying the enterprise orchestrator on Kubernetes.
+workerPools:
+  trainers:
+    replicas: 2
+    instanceType: nvidia-a10
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+    resources:
+      limits:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: 1
+      requests:
+        cpu: "4"
+        memory: 16Gi
+  evaluators:
+    replicas: 1
+    instanceType: c6i.2xlarge
+sharedStorage:
+  mountPath: /mnt/entropy
+  storageClass: fast-ssd
+  size: 2Ti
+monitoring:
+  prometheus:
+    scrapeInterval: 30s
+    serviceMonitor: true
+  grafana:
+    datasource: prometheus
+launchPlanConfigMap: entropy-news-launch-plan

@@ -1,0 +1,30 @@
+name: Stress Testing
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Poetry
+        run: pip install poetry==1.7.1
+      - name: Install dependencies
+        run: |
+          poetry config virtualenvs.create false
+          poetry install --with torch --with dev
+      - name: Execute stress scenarios
+        run: |
+          set -o pipefail
+          pytest -m stress -q --maxfail=1 --durations=5 | tee stress-report.txt
+      - name: Upload stress report
+        uses: actions/upload-artifact@v4
+        with:
+          name: stress-report
+          path: stress-report.txt

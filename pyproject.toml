@@ -31,6 +31,7 @@ entropy-news-train = "entropy_news.main:main"
 entropy-news-forecast = "entropy_news.main_forecast:main"
 entropy-news-rolling = "entropy_news.rolling_train_forecast:main"
 entropy-news-eval = "entropy_news.main_evaluate:main"
+entropy-news-orchestrate = "entropy_news.model.orchestration:main"
 
 [build-system]
 requires = ["poetry-core"]

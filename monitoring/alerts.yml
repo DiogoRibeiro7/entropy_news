@@ -1,0 +1,21 @@
+groups:
+  - name: entropy-news
+    rules:
+      - alert: TrainerThroughputDrop
+        expr: avg_over_time(entropy_trainer_throughput[10m]) < 200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Trainer throughput has dropped below 200 samples/sec"
+          description: >-
+            Investigate the cluster for resource contention or stalled data loaders.
+      - alert: GradientHealthDegraded
+        expr: avg_over_time(entropy_gradient_health[15m]) < 0.8
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gradient health metric is below 0.8"
+          description: >-
+            Check recent code changes or data anomalies causing divergence.
