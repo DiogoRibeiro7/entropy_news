@@ -16,7 +16,9 @@ services so enterprise operators can standardise procedures across environments.
 3. **Artifacts:** Build the training container image and push it to the target
    registry. Confirm that the `entropy-news-train` CLI is present.
 4. **Monitoring:** Deploy the Prometheus and Grafana assets from the
-   `monitoring/` directory and confirm that scrape jobs succeed.
+   `monitoring/` directory and confirm that scrape jobs succeed. Plan to run the
+   training CLI with ``--enable-metrics`` so the exporters expose throughput,
+   gradient, and checkpoint telemetry.
 
 ## 2. Bare-metal Deployment
 
@@ -27,6 +29,7 @@ services so enterprise operators can standardise procedures across environments.
 
    ```python
    from entropy_news.model.orchestration import ClusterTopology, EnterpriseOrchestrator, NodeConfig, TrainingJob
+   from entropy_news.utils.metrics import start_metrics_server
 
    topology = ClusterTopology(
        nodes=[
@@ -37,6 +40,7 @@ services so enterprise operators can standardise procedures across environments.
        shared_storage=Path("/mnt/entropy"),
    )
    orchestrator = EnterpriseOrchestrator(topology)
+   start_metrics_server(port=9100)
    job = TrainingJob(name="release-candidate", entrypoint="entropy-news-train")
    orchestrator.schedule(job, dry_run=False)
    ```

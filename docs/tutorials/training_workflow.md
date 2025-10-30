@@ -66,6 +66,9 @@ optimisers. Review the API reference for deeper insights into each component.
   tools like `tee` for collaborative reviews.
 - Visualise gradients and learning rates by running the dashboard in monitoring
   mode: `streamlit run entropy_news/dashboard/app.py -- --metrics output/training/metrics.json`.
+- Expose Prometheus telemetry with
+  ``entropy-news-train --enable-metrics --metrics-port 8000`` so the monitoring
+  stack can scrape throughput, gradient norms, and checkpoint latency.
 - Use the orchestration health checks documented in
   {mod}`entropy_news.model.orchestration` when training across multiple nodes.
 

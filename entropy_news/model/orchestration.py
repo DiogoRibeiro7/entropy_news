@@ -14,6 +14,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Iterator, List, Sequence
 
+from entropy_news.utils.metrics import (
+    observe_job_duration,
+    record_heartbeat_age,
+    record_launch_plan_size,
+    record_rank_launch,
+    start_metrics_server,
+    update_active_processes,
+)
+
 from .distributed import CheckpointManager
 
 logger = logging.getLogger(__name__)
@@ -133,6 +142,7 @@ class EnterpriseOrchestrator:
         self._health_server: HTTPServer | None = None
         self._health_thread: threading.Thread | None = None
         self._running_processes: List[subprocess.Popen[bytes]] = []
+        self._launch_start: float | None = None
 
     def build_launch_plan(self, job: TrainingJob) -> List[LaunchSpec]:
         """Construct launch specifications for each distributed rank."""
@@ -193,16 +203,22 @@ class EnterpriseOrchestrator:
         """
 
         plan = self.build_launch_plan(job)
+        record_launch_plan_size(len(plan))
         self._running_processes = []
         if dry_run:
+            update_active_processes(0)
+            self._launch_start = None
             return plan
         if launcher is None:
             launcher = self.default_launcher
+        self._launch_start = time.time()
         for spec in plan:
             self.register_heartbeat(spec.node.name)
+            record_rank_launch(spec.node.name, spec.node.role)
             handle = launcher(spec)
             if handle is not None:
                 self._running_processes.append(handle)
+                update_active_processes(len(self._running_processes))
         return plan
 
     @staticmethod
@@ -226,6 +242,10 @@ class EnterpriseOrchestrator:
                     f"Process {process.args!r} exited with status {return_code}"
                 )
             self._running_processes.remove(process)
+        update_active_processes(len(self._running_processes))
+        if self._launch_start is not None:
+            observe_job_duration(time.time() - self._launch_start)
+            self._launch_start = None
 
     def terminate_processes(self) -> None:
         """Terminate any still-running launched processes."""
@@ -238,11 +258,13 @@ class EnterpriseOrchestrator:
                 except subprocess.TimeoutExpired:
                     process.kill()
         self._running_processes.clear()
+        update_active_processes(0)
 
     def register_heartbeat(self, node_name: str) -> None:
         """Record a liveness heartbeat for ``node_name``."""
 
         self._heartbeats[node_name] = time.time()
+        record_heartbeat_age(node_name, 0.0, True)
 
     def health_report(self) -> Dict[str, Dict[str, float | str]]:
         """Return liveness information for all nodes."""
@@ -260,6 +282,7 @@ class EnterpriseOrchestrator:
                 "latency": age,
                 "status": "healthy" if is_healthy else "stale",
             }
+            record_heartbeat_age(node.name, age, is_healthy)
         return status
 
     def start_health_server(self, host: str = "127.0.0.1", port: int = 0) -> int:
@@ -356,10 +379,26 @@ def main() -> None:
         action="store_true",
         help="Execute the plan using the built-in launcher instead of performing a dry run",
     )
+    parser.add_argument(
+        "--enable-metrics",
+        action="store_true",
+        help="Expose Prometheus metrics for orchestrator scheduling telemetry.",
+    )
+    parser.add_argument(
+        "--metrics-port",
+        type=int,
+        default=None,
+        help="Optional port for the Prometheus metrics exporter (defaults to ENV or 8000).",
+    )
     args = parser.parse_args()
 
     topology = _load_topology(args.topology)
     orchestrator = EnterpriseOrchestrator(topology)
+    if args.enable_metrics:
+        try:
+            start_metrics_server(args.metrics_port)
+        except OSError as exc:
+            logger.warning("Failed to start Prometheus metrics server: %s", exc)
     job = TrainingJob(name="cli", entrypoint=args.entrypoint, args=tuple(args.args or ()))
     plan = orchestrator.schedule(job, dry_run=not args.launch)
     json_plan = [

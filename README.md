@@ -174,6 +174,11 @@ entropy-news-train --train-data my_train.txt --epochs 10 --batch-size 64 \
                    --learning-rate 0.0005
 ```
 
+Enable Prometheus exporters for throughput, gradient, and checkpoint metrics by
+passing ``--enable-metrics`` (optionally overriding the port with
+``--metrics-port``). The monitoring stack in ``monitoring/`` scrapes these
+endpoints by default on port ``8000``.
+
 You can supply a JSON configuration via `--model-config` to reuse
 Transformer or attention hyperparameters, and the resolved settings are saved to
 `--config-out` for evaluation and forecasting runs.
@@ -218,6 +223,11 @@ entropy-news-orchestrate --topology configs/cluster.json
 # Execute the plan with the built-in launcher and wait for completion
 entropy-news-orchestrate --topology configs/cluster.json --launch
 ```
+
+Expose orchestration telemetry (launch counts, heartbeat age, active process
+gauges) for Prometheus by adding ``--enable-metrics`` and an optional
+``--metrics-port``. Use port ``9100`` to align with the default
+``monitoring/prometheus.yml`` scrape targets.
 
 Each launched rank receives `MASTER_ADDR`, `MASTER_PORT`, `RANK`, and
 `WORLD_SIZE` in its environment so PyTorch's distributed runtime is correctly

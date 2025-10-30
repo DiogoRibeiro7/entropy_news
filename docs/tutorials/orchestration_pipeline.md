@@ -88,6 +88,7 @@ from entropy_news.model.orchestration import (
     EnterpriseOrchestrator,
     NodeConfig,
 )
+from entropy_news.utils.metrics import start_metrics_server
 
 payload = json.loads(Path("configs/cluster.json").read_text())
 
@@ -107,6 +108,9 @@ for launch in plan:
 # Execute the plan locally using the built-in launcher.
 orchestrator.schedule(spec, dry_run=False)
 orchestrator.wait_for_processes()
+
+# Start the Prometheus exporter so monitoring/ dashboards can scrape metrics.
+start_metrics_server(port=9100)
 
 # Custom launchers are still supported when you need to fan out over SSH,
 # Kubernetes Jobs, or cloud batch APIs.

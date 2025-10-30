@@ -10,10 +10,19 @@ services:
       - PYTHONPATH=/app
   orchestrator:
     build: ..
-    command: ["python", "-m", "entropy_news.model.orchestration"]
+    command:
+      [
+        "python",
+        "-m",
+        "entropy_news.model.orchestration",
+        "--enable-metrics",
+        "--metrics-port",
+        "9100",
+      ]
     working_dir: /app
     ports:
       - "9090:9090"
+      - "9100:9100"
     environment:
       - PYTHONPATH=/app
     volumes:

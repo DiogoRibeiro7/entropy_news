@@ -18,11 +18,13 @@ heartbeat endpoint and the training metrics exported by the CLI workflows.
    preferred platform-specific tooling.
 2. Mount this directory into the Prometheus container and point Grafana to the
    provided dashboard JSON via provisioning.
-3. Configure exporters or sidecars on each trainer to expose metrics at port
-   `8000` using the metrics emitted by `entropy-news-train`.
-4. Confirm that the orchestrator's health endpoint is reachable at `/health` and
-   that the custom metric `entropy_orchestrator_node_status` is being pushed via
-   your telemetry agent.
+3. Launch training jobs with ``entropy-news-train --enable-metrics`` (optionally
+   ``--metrics-port``) so Prometheus can scrape throughput, gradient norms, and
+   checkpoint latency at the configured port (`8000` by default).
+4. Run the orchestrator with ``entropy-news-orchestrate --enable-metrics`` and a
+   ``--metrics-port`` that matches the scrape target (``9100`` in the default
+   configuration). Prometheus collects launch counters, heartbeat ages, and
+   active process gauges directly from this endpoint.
 
 These assets serve as templates; adjust scrape intervals, alert thresholds, and
 panel layouts to match production requirements.
