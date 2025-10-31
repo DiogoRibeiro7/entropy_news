@@ -29,7 +29,7 @@ services so enterprise operators can standardise procedures across environments.
 
    ```python
    from entropy_news.model.orchestration import ClusterTopology, EnterpriseOrchestrator, NodeConfig, TrainingJob
-   from entropy_news.utils.metrics import start_metrics_server
+   from entropy_news.utils.metrics import start_metrics_server, stop_metrics_server
 
    topology = ClusterTopology(
        nodes=[
@@ -40,9 +40,12 @@ services so enterprise operators can standardise procedures across environments.
        shared_storage=Path("/mnt/entropy"),
    )
    orchestrator = EnterpriseOrchestrator(topology)
-   start_metrics_server(port=9100)
+   metrics_handle = start_metrics_server(port=9100)
    job = TrainingJob(name="release-candidate", entrypoint="entropy-news-train")
    orchestrator.schedule(job, dry_run=False)
+   metrics_handle.stop()
+   # Alternatively call stop_metrics_server() when prometheus_client is available.
+   # stop_metrics_server()
    ```
 
 3. **Execution:** Use SSH or an MPS scheduler to invoke the launch plan on each

@@ -88,7 +88,7 @@ from entropy_news.model.orchestration import (
     EnterpriseOrchestrator,
     NodeConfig,
 )
-from entropy_news.utils.metrics import start_metrics_server
+from entropy_news.utils.metrics import start_metrics_server, stop_metrics_server
 
 payload = json.loads(Path("configs/cluster.json").read_text())
 
@@ -109,8 +109,8 @@ for launch in plan:
 orchestrator.schedule(spec, dry_run=False)
 orchestrator.wait_for_processes()
 
-# Start the Prometheus exporter so monitoring/ dashboards can scrape metrics.
-start_metrics_server(port=9100)
+# Start the Prometheus exporter so monitoring dashboards can scrape metrics.
+metrics_handle = start_metrics_server(port=9100)
 
 # Custom launchers are still supported when you need to fan out over SSH,
 # Kubernetes Jobs, or cloud batch APIs.
@@ -118,6 +118,11 @@ def ssh_launcher(launch_spec):
     ...  # Replace with fabric/paramiko calls in your environment
 
 orchestrator.schedule(spec, launcher=ssh_launcher, dry_run=False)
+
+# Shut down the exporter when the orchestration run finishes.
+metrics_handle.stop()
+# Alternatively call stop_metrics_server() for parity with prometheus_client.
+# stop_metrics_server()
 ```
 
 Monitor the resulting Prometheus metrics using the dashboards shipped in

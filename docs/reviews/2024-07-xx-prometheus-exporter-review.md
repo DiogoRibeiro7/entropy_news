@@ -12,15 +12,15 @@
 - **Testing:** `tests/test_metrics_exporter.py` covers server startup idempotency, training throughput counters, and orchestration label handling.
 
 ## Findings
-1. **Fallback histogram semantics differ from Prometheus expectations**  
-   - The fallback `Histogram` implementation only accumulates sums and does not produce `_bucket`, `_sum`, and `_count` samples. Consumers relying on histogram quantiles in environments without `prometheus_client` will see incomplete data.  
-   - **Recommendation:** Expand the fallback to expose Prometheus-compatible buckets and counters (or require `prometheus_client`).
+1. **Fallback histogram parity restored**
+   - The repository now ships Prometheus-compatible histogram buckets, counts, and sums even when `prometheus_client` is unavailable, restoring quantile calculations for the fallback exporter path.
+   - Regression coverage in `tests/test_metrics_exporter.py` verifies the new semantics by checking `_bucket`, `_sum`, and `_count` samples.
 
-2. **Exporter lifecycle lacks shutdown hooks**  
-   - `start_metrics_server` launches a daemon HTTP server but never returns a handle to stop it. For long-lived tests or embedded integrations this can leave stray threads.  
-   - **Recommendation:** Provide an optional shutdown function for the fallback server and document cleanup expectations for the official client.
+2. **Exporter lifecycle management documented**
+   - `start_metrics_server` returns a `MetricsServerHandle` with an optional `stop()` helper, and `stop_metrics_server()` resets globals so tests can cleanly tear down the HTTP server.
+   - Tutorials and runbooks were updated to demonstrate how to stop the exporter once orchestration completes.
 
-3. **Orchestrator metrics assume plan builds succeed**  
-   - When `build_launch_plan` raises, no telemetry is recorded. Consider emitting failure counters to aid alerting on orchestration errors.  
-   - **Recommendation:** Add exception handling around schedule/launch operations that records failure metrics before surfacing the error.
+3. **Failure telemetry emitted for launch-plan errors**
+   - `EnterpriseOrchestrator.schedule` increments the `entropy_news_orchestrator_plan_failure_total` counter before propagating exceptions, giving operators visibility into orchestration regressions.
+   - Tests assert the counter increments whenever `build_launch_plan` raises, ensuring future refactors preserve the behaviour.
 

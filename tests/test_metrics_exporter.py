@@ -12,8 +12,20 @@ def test_start_metrics_server_runs_once(monkeypatch) -> None:
 
     calls: list[int] = []
 
-    def _fake_start(port: int) -> None:
+    class _FakeServer:
+        def __init__(self, port: int) -> None:
+            self.port = port
+            self.shutdown_called = False
+
+        def shutdown(self) -> None:
+            self.shutdown_called = True
+
+    server = _FakeServer(0)
+
+    def _fake_start(port: int) -> _FakeServer:
         calls.append(port)
+        server.port = port
+        return server
 
     monkeypatch.setattr(metrics, "_start_http_server", _fake_start)
 
@@ -21,7 +33,12 @@ def test_start_metrics_server_runs_once(monkeypatch) -> None:
     second = metrics.start_metrics_server(9300)
 
     assert calls == [9200]
-    assert first == second == 9200
+    assert first is second
+    assert first.port == 9200
+    assert callable(first.shutdown)
+
+    metrics.stop_metrics_server()
+    assert server.shutdown_called is True
 
 
 def test_training_metrics_update_throughput() -> None:
@@ -40,10 +57,33 @@ def test_training_metrics_update_throughput() -> None:
         "entropy_news_training_last_checkpoint_epoch"
     )
 
+    sum_before = REGISTRY.get_sample_value("entropy_news_training_batch_seconds_sum") or 0.0
+    count_before = (
+        REGISTRY.get_sample_value("entropy_news_training_batch_seconds_count") or 0.0
+    )
+    bucket_before = REGISTRY.get_sample_value(
+        "entropy_news_training_batch_seconds_bucket",
+        labels={"le": "1.0"},
+    ) or 0.0
+
+    metrics.observe_training_batch(128, 1.0)
+
+    sum_after = REGISTRY.get_sample_value("entropy_news_training_batch_seconds_sum") or 0.0
+    count_after = (
+        REGISTRY.get_sample_value("entropy_news_training_batch_seconds_count") or 0.0
+    )
+    bucket_after = REGISTRY.get_sample_value(
+        "entropy_news_training_batch_seconds_bucket",
+        labels={"le": "1.0"},
+    ) or 0.0
+
     assert throughput == 128.0
     assert samples and samples >= 256.0
     assert gradient_norm == 12.5
     assert checkpoint_epoch == 3.0
+    assert sum_after >= sum_before + 1.0
+    assert count_after >= count_before + 1.0
+    assert bucket_after >= bucket_before + 1.0
 
 
 def test_orchestrator_metrics_capture_labels() -> None:

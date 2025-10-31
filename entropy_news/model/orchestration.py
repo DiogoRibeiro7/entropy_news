@@ -17,6 +17,7 @@ from typing import Callable, Dict, Iterable, Iterator, List, Sequence
 from entropy_news.utils.metrics import (
     observe_job_duration,
     record_heartbeat_age,
+    record_launch_plan_failure,
     record_launch_plan_size,
     record_rank_launch,
     start_metrics_server,
@@ -202,7 +203,11 @@ class EnterpriseOrchestrator:
         deployment state.
         """
 
-        plan = self.build_launch_plan(job)
+        try:
+            plan = self.build_launch_plan(job)
+        except Exception as exc:
+            record_launch_plan_failure(type(exc).__name__)
+            raise
         record_launch_plan_size(len(plan))
         self._running_processes = []
         if dry_run:

@@ -6,8 +6,9 @@ import logging
 import math
 import os
 import threading
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Callable, Dict, Iterable, Optional, Tuple
 
 try:  # pragma: no cover - exercised via integration tests
     from prometheus_client import (  # type: ignore[import-not-found]
@@ -133,25 +134,101 @@ except ModuleNotFoundError:  # pragma: no cover - fallback used in minimal envir
             self._metric._set(self._key, value)
 
     class Histogram(_FallbackMetric):  # type: ignore[override]
-        """Simplified Histogram that tracks the sum of observations."""
+        """Histogram implementation mirroring Prometheus bucket semantics."""
+
+        _DEFAULT_BUCKETS = (
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.075,
+            0.1,
+            0.25,
+            0.5,
+            0.75,
+            1.0,
+            2.5,
+            5.0,
+            7.5,
+            10.0,
+        )
+
+        def __init__(
+            self,
+            name: str,
+            documentation: str,
+            labelnames: Iterable[str] = (),
+            *,
+            buckets: Iterable[float] | None = None,
+            **kwargs: object,
+        ) -> None:
+            self._buckets = tuple(sorted(float(bound) for bound in (buckets or self._DEFAULT_BUCKETS)))
+            super().__init__(name, documentation, labelnames, **kwargs)
+            self._states: Dict[Tuple[str, ...], "_HistogramState"] = {}
 
         def observe(self, amount: float) -> None:
-            self._values[()] = self._values.get((), 0.0) + float(amount)
+            self._observe((), float(amount))
 
         def _child(self, key: Tuple[str, ...]) -> "_MetricChild":
             return _HistogramChild(self, key)
 
+        def _state(self, key: Tuple[str, ...]) -> "_HistogramState":
+            if key not in self._states:
+                self._states[key] = _HistogramState(len(self._buckets))
+            return self._states[key]
+
         def _observe(self, key: Tuple[str, ...], amount: float) -> None:
-            self._values[key] = self._values.get(key, 0.0) + float(amount)
+            state = self._state(key)
+            state.count += 1
+            state.sum += amount
+            for index, upper_bound in enumerate(self._buckets):
+                if amount <= upper_bound:
+                    state.bucket_counts[index] += 1
+            # +Inf bucket accumulates every observation
+            state.bucket_counts[-1] += 1
 
         def samples(self) -> Iterable[Tuple[str, Dict[str, str], float]]:
-            for key, value in self._values.items():
-                labels = self._labels.get(key, {})
-                yield self.name, labels, float(value)
+            for key, state in self._states.items():
+                labels = dict(self._labels.get(key, {}))
+                # Emit each bucket with the appropriate ``le`` label.
+                for index, upper_bound in enumerate(self._buckets):
+                    bucket_labels = dict(labels)
+                    bucket_labels["le"] = _format_bucket_bound(upper_bound)
+                    yield (
+                        f"{self.name}_bucket",
+                        bucket_labels,
+                        float(state.bucket_counts[index]),
+                    )
+                inf_labels = dict(labels)
+                inf_labels["le"] = "+Inf"
+                yield (
+                    f"{self.name}_bucket",
+                    inf_labels,
+                    float(state.bucket_counts[-1]),
+                )
+                yield (
+                    f"{self.name}_sum",
+                    labels,
+                    float(state.sum),
+                )
+                yield (
+                    f"{self.name}_count",
+                    labels,
+                    float(state.count),
+                )
 
     class _HistogramChild(_MetricChild):
         def observe(self, amount: float) -> None:
-            self._metric._observe(self._key, amount)
+            self._metric._observe(self._key, float(amount))
+
+    class _HistogramState:
+        """Track counts and sums for a histogram time series."""
+
+        def __init__(self, bucket_count: int) -> None:
+            # ``bucket_count`` excludes the +Inf bucket; we track it separately.
+            self.bucket_counts = [0.0] * (bucket_count + 1)
+            self.sum = 0.0
+            self.count = 0.0
 
     _PROMETHEUS_REGISTRY = _FallbackRegistry()
 
@@ -193,6 +270,18 @@ _FALLBACK_WARNING_EMITTED = False
 logger = logging.getLogger(__name__)
 
 
+def _format_bucket_bound(value: float) -> str:
+    """Format histogram upper bounds consistently with Prometheus output."""
+
+    # The Prometheus text exposition format trims trailing zeros; ``repr`` would
+    # include scientific notation for small buckets, so we adopt ``str`` and
+    # normalise ``-0.0`` to ``0.0`` for readability.
+    formatted = str(float(value))
+    if formatted == "-0.0":
+        return "0.0"
+    return formatted
+
+
 def perplexity(entropy: float) -> float:
     """Return the perplexity associated with a cross-entropy value.
 
@@ -211,15 +300,36 @@ def perplexity(entropy: float) -> float:
 _METRICS_LOCK = threading.Lock()
 _METRICS_STARTED = False
 _METRICS_PORT: int | None = None
+_METRICS_HANDLE: "MetricsServerHandle" | None = None
 
 
-def start_metrics_server(port: int | None = None) -> int:
+@dataclass(slots=True)
+class MetricsServerHandle:
+    """Handle returned by :func:`start_metrics_server`.
+
+    The ``shutdown`` callback is optional because the official
+    ``prometheus_client`` launcher does not currently expose a public shutdown
+    hook. The fallback exporter provides a cooperative shutdown implementation
+    so tests and embedded environments can cleanly stop the HTTP server.
+    """
+
+    port: int
+    shutdown: Callable[[], None] | None = None
+
+    def stop(self) -> None:
+        """Invoke the shutdown callback when available."""
+
+        if self.shutdown is not None:
+            self.shutdown()
+
+
+def start_metrics_server(port: int | None = None) -> MetricsServerHandle:
     """Start the Prometheus metrics HTTP exporter if it is not already running."""
 
-    global _METRICS_STARTED, _METRICS_PORT
+    global _METRICS_STARTED, _METRICS_PORT, _METRICS_HANDLE
     with _METRICS_LOCK:
-        if _METRICS_STARTED and _METRICS_PORT is not None:
-            return _METRICS_PORT
+        if _METRICS_STARTED and _METRICS_HANDLE is not None:
+            return _METRICS_HANDLE
         default_port = int(os.environ.get("ENTROPY_NEWS_METRICS_PORT", "8000"))
         listen_port = port or default_port
         global _FALLBACK_WARNING_EMITTED
@@ -228,11 +338,27 @@ def start_metrics_server(port: int | None = None) -> int:
                 "prometheus_client not installed; using fallback metrics exporter"
             )
             _FALLBACK_WARNING_EMITTED = True
-        _start_http_server(listen_port)
+        server = _start_http_server(listen_port)
+        shutdown_cb: Callable[[], None] | None = None
+        if hasattr(server, "shutdown") and callable(getattr(server, "shutdown")):
+            shutdown_cb = server.shutdown  # type: ignore[assignment]
         _METRICS_STARTED = True
         _METRICS_PORT = listen_port
+        _METRICS_HANDLE = MetricsServerHandle(port=listen_port, shutdown=shutdown_cb)
         logger.info("Prometheus metrics exporter listening on port %s", listen_port)
-        return listen_port
+        return _METRICS_HANDLE
+
+
+def stop_metrics_server() -> None:
+    """Stop the fallback metrics server if it is running."""
+
+    global _METRICS_STARTED, _METRICS_PORT, _METRICS_HANDLE
+    with _METRICS_LOCK:
+        if _METRICS_HANDLE is not None:
+            _METRICS_HANDLE.stop()
+        _METRICS_STARTED = False
+        _METRICS_PORT = None
+        _METRICS_HANDLE = None
 
 
 # Training metrics -----------------------------------------------------------
@@ -346,6 +472,11 @@ _ORCHESTRATOR_JOB_DURATION = Histogram(
     "Total wall-clock duration from launch until all processes exit.",
     buckets=(1, 5, 10, 30, 60, 120, 300, 600, 1200, 3600),
 )
+_ORCHESTRATOR_PLAN_FAILURES = Counter(
+    "entropy_news_orchestrator_plan_failure_total",
+    "Total number of launch-plan failures observed by the orchestrator.",
+    labelnames=("reason",),
+)
 
 
 def record_launch_plan_size(world_size: int) -> None:
@@ -380,3 +511,9 @@ def observe_job_duration(duration_seconds: float) -> None:
 
     if duration_seconds > 0:
         _ORCHESTRATOR_JOB_DURATION.observe(duration_seconds)
+
+
+def record_launch_plan_failure(reason: str) -> None:
+    """Increment the failure counter for launch-plan generation errors."""
+
+    _ORCHESTRATOR_PLAN_FAILURES.labels(reason=reason).inc()
