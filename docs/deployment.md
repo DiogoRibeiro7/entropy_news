@@ -23,6 +23,20 @@ A `docker/docker-compose.yml` file is included for local iteration. It mounts th
 `output/` directory so that forecasts, checkpoints, and ONNX exports persist on
 the host machine.
 
+### Enterprise orchestration profile
+
+Release 1.0 introduces the `EnterpriseOrchestrator` module for multi-node
+training. To generate a launch plan and expose a health endpoint, run:
+
+```bash
+python -m entropy_news.model.orchestration --topology topology.json --health-server
+```
+
+The CLI prints the per-rank commands and environment variables. Sample topology
+structures and runbooks live in `docs/runbooks/`. The updated Docker Compose
+stack now includes Prometheus and Grafana services that read from the assets in
+`monitoring/`.
+
 ## Quantisation and ONNX export
 
 The `entropy_news.model.inference` module contains helpers for dynamic
@@ -100,3 +114,7 @@ docker run --rm \
 The quantised and ONNX-exported models can be distributed across services or
 scheduled jobs to provide reproducible analytics built on the Entropy News
 pipeline.
+
+For enterprise rehearsals, follow the detailed procedures in
+`docs/runbooks/enterprise_training.md` and review the rehearsal metrics in
+`docs/multi_node_rehearsal.md`.

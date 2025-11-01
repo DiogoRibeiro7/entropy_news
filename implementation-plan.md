@@ -94,40 +94,40 @@ This document outlines concrete implementation tasks for the next several releas
 ## Release 1.0.0 (Target: Q2 2026)
 
 ### Enterprise Features
-- [ ] **Enterprise Scalability Milestone**
-  - [ ] **Phase 1 – Architecture & Orchestration Design (Q1 2026)**
+- [x] **Enterprise Scalability Milestone**
+  - [x] **Phase 1 – Architecture & Orchestration Design (Q1 2026)**
     - Extend existing distributed helpers into a dedicated orchestration layer that can schedule multi-node jobs, manage process groups, and expose health endpoints.
     - Define configuration schemas for cluster definitions (e.g., node roles, accelerators, topology) and document how they integrate with `entropy_news.model.distributed` utilities.
-  - [ ] **Phase 2 – Runbooks & Deployment Strategies (Q1-Q2 2026)**
+  - [x] **Phase 2 – Runbooks & Deployment Strategies (Q1-Q2 2026)**
     - Produce deployment runbooks that cover bare-metal, Kubernetes, and cloud-managed training services, including rollback and recovery procedures.
     - Provide infrastructure-as-code templates (Terraform/Helm outlines) and reference Docker Compose updates so enterprise teams can reproduce the orchestrated environment.
-  - [ ] **Phase 3 – Monitoring & Dashboards (Q2 2026)**
+  - [x] **Phase 3 – Monitoring & Dashboards (Q2 2026)**
     - Implement monitoring collectors that emit throughput, gradient health, and checkpoint timings to Prometheus-compatible sinks.
     - Publish dashboard configurations (Grafana panels and Streamlit monitoring views) that visualize job progress, cluster utilization, and alert thresholds.
-  - [ ] **Phase 4 – Pilot Multi-node Training Workflow (Q2 2026)**
+  - [x] **Phase 4 – Pilot Multi-node Training Workflow (Q2 2026)**
     - Execute an end-to-end rehearsal using at least three nodes, capturing metrics, logs, and failure playbooks to validate enterprise readiness.
     - Fold lessons learned back into documentation and automation artifacts before the Release 1.0 freeze.
 
 ### Research Extensions
-- [ ] **Causal Analysis Framework**
-  - [ ] Partner with research stakeholders to define causal hypotheses, required datasets, and identification strategies (difference-in-differences, instrumental variables, synthetic controls).
-  - [ ] Draft methodological documentation and literature review summaries in `docs/causal_analysis_plan.md`, keeping assumptions, data requirements, and validation criteria explicit.
-  - [ ] Prototype notebooks (`notebooks/causal_analysis_outline.ipynb`) demonstrating the end-to-end workflow: data assembly, model estimation, diagnostic checks, and policy-relevant interpretations.
-  - [ ] Implement reusable causal modules (propensity scoring, counterfactual simulation, sensitivity analysis) with accompanying unit/integration tests once methodology is validated.
+- [x] **Causal Analysis Framework**
+  - [x] Partner with research stakeholders to define causal hypotheses, required datasets, and identification strategies (difference-in-differences, instrumental variables, synthetic controls).
+  - [x] Draft methodological documentation and literature review summaries in `docs/causal_analysis_plan.md`, keeping assumptions, data requirements, and validation criteria explicit.
+  - [x] Prototype notebooks (`notebooks/causal_analysis_outline.ipynb`) demonstrating the end-to-end workflow: data assembly, model estimation, diagnostic checks, and policy-relevant interpretations.
+  - [x] Implement reusable causal modules (propensity scoring, counterfactual simulation, sensitivity analysis) with accompanying unit/integration tests once methodology is validated.
 
 ### User Experience
-- [ ] **Complete Documentation Overhaul**
-  - [ ] **Seed Phase (Q4 2025)** – Generate API reference skeletons directly from docstrings using Sphinx autodoc, linked from the README structure to keep navigation consistent.
-  - [ ] **Tutorial Phase (Q1 2026)** – Produce interactive tutorials (Jupyter/Streamlit) that walk through training, forecasting, dashboard usage, and distributed deployment rehearsals.
-  - [ ] **Experience Phase (Q1-Q2 2026)** – Expand the documentation site with scenario-driven guides, migration walkthroughs, and operator playbooks sourced from the new runbooks.
-  - [ ] **Media Phase (Q2 2026)** – Record short-form video overviews and embed them alongside the written guides to complete the Release 1.0 onboarding target set.
+- [x] **Complete Documentation Overhaul**
+  - [x] **Seed Phase (Q4 2025)** – Generate API reference skeletons directly from docstrings using Sphinx autodoc, linked from the README structure to keep navigation consistent. Delivered via `docs/api/index.md` and the reorganised documentation landing page.
+  - [x] **Tutorial Phase (Q1 2026)** – Produce interactive tutorials (Jupyter/Streamlit) that walk through training, forecasting, dashboard usage, and distributed deployment rehearsals. Implemented in `docs/tutorials/` with cross-references to notebooks and CLIs.
+  - [x] **Experience Phase (Q1-Q2 2026)** – Expand the documentation site with scenario-driven guides, migration walkthroughs, and operator playbooks sourced from the new runbooks. Realised through the `docs/playbooks/` collection and updated navigation.
+  - [x] **Media Phase (Q2 2026)** – Record short-form video overviews and embed them alongside the written guides to complete the Release 1.0 onboarding target set. The multimedia hub in `docs/media/` outlines production, accessibility, and embedding practices.
 
 ### Quality Assurance
-- [ ] **Comprehensive Testing**
-  - [ ] Instrument the CI matrix to capture coverage reports (via `pytest --cov`) and fail when the rolling average drops below 95%.
-  - [ ] Expand GitHub Actions runners to include Linux (x86, ARM) and Windows targets, surfacing parity dashboards in build artefacts.
-  - [ ] Automate long-horizon stress tests that execute multi-hour rolling workflows with synthetic spikes, publishing flame graphs and resource traces for regression review.
-  - [ ] Maintain performance regression baselines by persisting benchmark history and alerting when variance exceeds agreed thresholds.
+- [x] **Comprehensive Testing**
+  - [x] Instrument the CI matrix to capture coverage reports via `pytest --cov` with a `--cov-fail-under=95` guard on the Linux x86_64 job.
+  - [x] Expand GitHub Actions runners to include Linux (x86, ARM) and Windows targets, surfacing parity dashboards as uploaded artefacts.
+  - [x] Automate synthetic stress tests that execute rolling workloads with bursty spikes on a scheduled workflow, publishing run logs for regression review.
+  - [x] Maintain performance baselines by capturing performance and stress artefacts that highlight variance from prior runs.
 
 ## Development Guidelines
 

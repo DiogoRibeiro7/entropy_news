@@ -6,6 +6,20 @@ This project computes the **entropy of financial news** using a **Recurrent Neur
 
 Full documentation is available at [entropy-news.readthedocs.io](https://entropy-news.readthedocs.io/).
 
+## 📖 Documentation Highlights
+
+- **API Reference** – Auto-generated module documentation lives under
+  `docs/api/index.md` with pages for core CLIs, model helpers, utilities, and the
+  causal research toolkit.
+- **Tutorials** – Step-by-step walkthroughs in `docs/tutorials/` cover training,
+  forecasting insights, dashboard storytelling, orchestration, and inference
+  delivery scenarios.
+- **Scenario Playbooks** – Operational guides in `docs/playbooks/` map
+  enterprise rollout, incident response, causal reviews, and research registry
+  processes to the underlying runbooks and APIs.
+- **Multimedia Hub** – Production, accessibility, and storyboard checklists in
+  `docs/media/` ensure Release 1.0 includes captioned videos and transcripts.
+
 ## 📦 Project Structure
 
 ```
@@ -31,9 +45,12 @@ Full documentation is available at [entropy-news.readthedocs.io](https://entropy
 │   │   ├── factory.py         # Unified factory for LSTM, attention, and transformer models
 │   │   ├── fusion.py          # Configurable multimodal fusion layers
 │   │   ├── inference.py       # Quantisation and ONNX export utilities
+│   │   ├── orchestration.py   # Enterprise scheduler, launch plans, and health endpoints
 │   │   ├── lstm_attention.py
 │   │   ├── lstm_entropy.py
 │   │   └── transformer_entropy.py
+│   ├── research/
+│   │   └── causal/             # Causal data assembly, estimators, and reporting helpers
 │   ├── utils/
 │   │   ├── cli.py             # Shared CLI configuration and checkpoint loading helpers
 │   │   ├── device.py          # CUDA stream / autocast context managers
@@ -45,6 +62,7 @@ Full documentation is available at [entropy-news.readthedocs.io](https://entropy
 │   ├── main_forecast.py       # Forecast CLI entry-point
 │   └── rolling_train_forecast.py
 ├── notebooks/                 # Research collateral (e.g., correlation analysis)
+├── monitoring/                # Prometheus, Grafana, and alerting templates
 ├── tests/                     # Unit, integration, and performance suites
 └── pyproject.toml             # Poetry-managed dependencies
 ```
@@ -98,6 +116,27 @@ Filter by month, inspect correlations between `entropy`, `entropy_news`, and
 and export both the filtered dataset and the generated summary report for
 stakeholder distribution.
 
+
+## 🔍 Causal Research Toolkit
+
+The `entropy_news.research.causal` package bundles everything required to evaluate
+news-driven interventions:
+
+1. **Assemble panels** – Merge entropy metrics with market data using
+   `assemble_causal_panel` and generate propensity inputs with
+   `build_propensity_features`.
+2. **Estimate effects** – Apply `difference_in_differences`,
+   `two_stage_least_squares`, or `synthetic_control` to quantify counterfactual
+   scenarios. Each helper returns a dataclass with diagnostics (confidence
+   intervals, F-statistics, weight vectors).
+3. **Report findings** – Produce tabular summaries with
+   `build_summary_table`, craft narratives via `format_policy_narrative`, and
+   forward aligned time series to dashboards through
+   `prepare_counterfactual_series`.
+
+See `docs/causal_methodology.md` and the accompanying notebooks for example
+workflows and methodological guardrails.
+
 ## 📚 Data
 The training news files referenced in the examples are not distributed with this
 repository. Ensure you have permission to use any dataset you supply. The
@@ -135,6 +174,11 @@ entropy-news-train --train-data my_train.txt --epochs 10 --batch-size 64 \
                    --learning-rate 0.0005
 ```
 
+Enable Prometheus exporters for throughput, gradient, and checkpoint metrics by
+passing ``--enable-metrics`` (optionally overriding the port with
+``--metrics-port``). The monitoring stack in ``monitoring/`` scrapes these
+endpoints by default on port ``8000``.
+
 You can supply a JSON configuration via `--model-config` to reuse
 Transformer or attention hyperparameters, and the resolved settings are saved to
 `--config-out` for evaluation and forecasting runs.
@@ -166,7 +210,32 @@ entropy-news-eval --data other.txt --batch-size 4 --output-csv metrics.csv
   restores the older pickle-based loading path. As we migrate remaining
   artifacts to safe formats the fallback will be disabled in a future release,
   so plan to refresh any custom checkpoints accordingly.
-### 4. Reuse Vocabulary
+
+### 4. Orchestrate Multi-Node Training
+
+Render distributed launch plans (and optionally execute them) using the
+enterprise orchestrator CLI:
+
+```bash
+# Preview the launch plan without executing the job
+entropy-news-orchestrate --topology configs/cluster.json
+
+# Execute the plan with the built-in launcher and wait for completion
+entropy-news-orchestrate --topology configs/cluster.json --launch
+```
+
+Expose orchestration telemetry (launch counts, heartbeat age, active process
+gauges) for Prometheus by adding ``--enable-metrics`` and an optional
+``--metrics-port``. Use port ``9100`` to align with the default
+``monitoring/prometheus.yml`` scrape targets.
+
+Each launched rank receives `MASTER_ADDR`, `MASTER_PORT`, `RANK`, and
+`WORLD_SIZE` in its environment so PyTorch's distributed runtime is correctly
+configured. Press `Ctrl+C` to interrupt running jobs; the orchestrator will
+terminate the spawned processes and exit with status 130. Add `--health-server`
+to expose the JSON liveness endpoint while the plan is executing.
+
+### 5. Reuse Vocabulary
 You can save the built vocabulary for later runs and reload it instead of
 recomputing every time:
 
@@ -209,6 +278,7 @@ Integration and performance suites are tagged and can be executed separately:
 ```bash
 pytest -m integration -q
 pytest -m performance -q
+pytest -m stress -q
 ```
 
 See [`docs/testing_strategy.md`](docs/testing_strategy.md) for the full
@@ -310,11 +380,11 @@ coverage:
 
 ```bash
 poetry install --with torch,numpy
-pytest --cov=entropy_news -q
+pytest --cov=entropy_news --cov-fail-under=95 -q
 ```
-Continuous integration runs the same command, ensuring coverage is tracked for
-every pull request. Coverage statistics are displayed in the GitHub Actions
-summary for convenient review.
+Continuous integration runs this command on Linux x86_64 alongside additional
+Linux ARM64 and Windows jobs so coverage gating (set to 95%) and parity checks
+remain visible in GitHub Actions summary reports.
 
 ## 📦 Releasing
 This project is packaged with [Poetry](https://python-poetry.org/) and follows

@@ -1,14 +1,24 @@
 # entropy_news/model/trainer.py
 
 import logging
+from pathlib import Path
+from time import perf_counter
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-from pathlib import Path
-from typing import Optional
 from tqdm import tqdm
+
 from entropy_news.utils import get_device
+from entropy_news.utils.metrics import (
+    observe_checkpoint,
+    observe_training_batch,
+    record_gradient_norm,
+    record_validation_loss,
+    update_training_epoch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +85,9 @@ class Trainer:
                 if show_progress
                 else loader
             )
+            update_training_epoch(epoch)
             for x_batch, y_batch in loop:
+                start_time = perf_counter()
                 x_batch = x_batch.to(self.device)
                 y_batch = y_batch.to(self.device)
 
@@ -85,16 +97,27 @@ class Trainer:
                     logits.view(-1, logits.size(-1)), y_batch.view(-1)
                 )
                 loss.backward()
+                record_gradient_norm(self._gradient_norm())
                 self.optimizer.step()
 
                 total_loss += loss.item()
                 if show_progress:
                     loop.set_postfix(loss=loss.item())
 
+                duration = perf_counter() - start_time
+                batch_size = (
+                    int(x_batch.size(0))
+                    if hasattr(x_batch, "size")
+                    else int(len(x_batch))
+                )
+                observe_training_batch(batch_size, duration)
+
             avg_loss = total_loss / len(loader)
             val_loss = (
                 self.evaluate(val_loader) if val_loader is not None else None
             )
+            if val_loss is not None:
+                record_validation_loss(val_loss)
             if epoch % 10 == 0 or epoch == 1 or epoch == epochs:
                 msg = f"Epoch {epoch}/{epochs} - Loss: {avg_loss:.4f}"
                 if val_loss is not None:
@@ -130,6 +153,17 @@ class Trainer:
         if torch.count_nonzero(weight).item() == 0:
             with torch.no_grad():
                 weight.uniform_(-1e-3, 1e-3)
+
+    def _gradient_norm(self) -> Optional[float]:
+        """Compute the L2 norm of gradients for telemetry reporting."""
+
+        grads = [p.grad for p in self.model.parameters() if p.grad is not None]
+        if not grads:
+            return None
+        total = torch.zeros(1, device=grads[0].device)
+        for grad in grads:
+            total += grad.data.norm(2).pow(2)
+        return float(total.sqrt().item())
 
     def fine_tune(
         self,
@@ -185,6 +219,7 @@ class Trainer:
         path = Path(path)
         if path.parent:
             path.parent.mkdir(parents=True, exist_ok=True)
+        start_time = perf_counter()
         torch.save(
             {
                 "model_state": self.model.state_dict(),
@@ -193,6 +228,7 @@ class Trainer:
             },
             path,
         )
+        observe_checkpoint(perf_counter() - start_time, epoch)
 
     def load_checkpoint(self, path: str | Path) -> int:
         """Load model and optimiser state from ``path``.

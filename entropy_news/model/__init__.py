@@ -10,6 +10,13 @@ from .distributed import (
     stress_test,
     synchronize_metrics,
 )
+from .orchestration import (
+    ClusterTopology,
+    EnterpriseOrchestrator,
+    LaunchSpec,
+    NodeConfig,
+    TrainingJob,
+)
 
 try:  # Optional torch dependency
     from .lstm_entropy import EntropyLSTM
@@ -39,4 +46,9 @@ __all__ = [
     "CheckpointManager",
     "stress_test",
     "TrainingMetrics",
+    "EnterpriseOrchestrator",
+    "ClusterTopology",
+    "NodeConfig",
+    "TrainingJob",
+    "LaunchSpec",
 ]

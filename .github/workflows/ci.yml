@@ -1,33 +1,68 @@
-name: CI
+name: Quality Assurance
 
 on:
   push:
     branches: [ main ]
   pull_request:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  unit:
-    runs-on: ubuntu-latest
+  validation:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.11'
+            coverage: true
+          - os: ubuntu-22.04-arm64
+            python: '3.11'
+            coverage: false
+          - os: windows-latest
+            python: '3.11'
+            coverage: false
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python }}
       - name: Install Poetry
         run: pip install poetry==1.7.1
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
           poetry install --with torch --with dev
-      - name: Run unit tests
-        run: pytest -q
+      - name: Run core test suite
+        run: |
+          set -o pipefail
+          if [ "${{ matrix.coverage }}" = "true" ]; then
+            pytest --cov=entropy_news --cov-report=xml --cov-report=term --cov-fail-under=95 -q | tee pytest-report.txt
+          else
+            pytest -q | tee pytest-report.txt
+          fi
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report-${{ matrix.os }}
+          path: pytest-report.txt
+      - name: Upload coverage report
+        if: matrix.coverage == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage.xml
 
   integration:
     runs-on: ubuntu-latest
-    needs: unit
+    needs: validation
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install Poetry
@@ -37,14 +72,21 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --with torch --with dev
       - name: Run integration tests
-        run: pytest -m integration -q
+        run: |
+          set -o pipefail
+          pytest -m integration -q | tee integration-report.txt
+      - name: Upload integration report
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-report
+          path: integration-report.txt
 
   performance:
     runs-on: ubuntu-latest
-    needs: unit
+    needs: validation
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install Poetry
@@ -53,5 +95,12 @@ jobs:
         run: |
           poetry config virtualenvs.create false
           poetry install --with torch --with dev
-      - name: Run performance tests
-        run: pytest -m performance -q
+      - name: Run performance checks
+        run: |
+          set -o pipefail
+          pytest -m performance -q | tee performance-report.txt
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance-report.txt

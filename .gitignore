@@ -33,6 +33,10 @@ dist/
 
 # Output directories
 output/
+docs/_build/
+
+# Documentation cache artifacts
+docs/api/generated/
 
 # OS-generated files
 .DS_Store
@@ -49,3 +53,5 @@ Thumbs.db
 
 # Poetry files
 poetry.lock
+
+/.hypothesis/

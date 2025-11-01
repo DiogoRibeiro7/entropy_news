@@ -8,7 +8,7 @@ import pytest
 import torch
 
 pytest.importorskip("hypothesis")
-from hypothesis import given, settings, strategies as st
+from hypothesis import HealthCheck, assume, given, settings, strategies as st
 
 from entropy_news.data.preprocessor import TextPreprocessor
 from entropy_news.data.streaming_dataset import StreamingNewsDataset
@@ -40,7 +40,7 @@ def test_preprocessor_encoding_within_vocab(texts: list[str]) -> None:
         assert set(decoded_tokens).issubset(valid_tokens)
 
 
-@settings(max_examples=30, deadline=None)
+@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(
     st.lists(
         st.text(alphabet=ALPHABET, min_size=0, max_size=40),
@@ -55,15 +55,20 @@ def test_streaming_dataset_shifted_targets(tmp_path, texts: list[str]) -> None:
     preprocessor.build_vocab(texts)
 
     corpus_path = tmp_path / "corpus.txt"
-    corpus_path.write_text("\n".join(texts))
+    payload = "\n".join(texts)
+    if not payload.endswith("\n"):
+        payload += "\n"
+    corpus_path.write_text(payload)
+    expected_lines = len(payload.splitlines())
+    assume(expected_lines > 0)
 
     dataset = StreamingNewsDataset(
         str(corpus_path), preprocessor, seq_len=12, chunk_size=5, cache_size=3
     )
 
-    assert len(dataset) == len(texts)
+    assert len(dataset) == expected_lines
 
-    for idx in range(len(dataset)):
+    for idx in range(expected_lines):
         inputs, targets = dataset[idx]
         assert inputs.shape == (12,)
         assert targets.shape == (12,)

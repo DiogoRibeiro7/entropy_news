@@ -12,6 +12,7 @@ from entropy_news.utils import (
     resolve_model_config,
     setup_logger,
 )
+from entropy_news.utils.metrics import start_metrics_server
 
 logger = logging.getLogger("train_logger")
 
@@ -108,6 +109,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable progress bars",
     )
     parser.set_defaults(progress=True)
+    parser.add_argument(
+        "--enable-metrics",
+        action="store_true",
+        help="Expose Prometheus metrics for throughput, gradients, and checkpoints.",
+    )
+    parser.add_argument(
+        "--metrics-port",
+        type=int,
+        default=None,
+        help="Optional port for the Prometheus exporter (defaults to ENV or 8000).",
+    )
     return parser
 
 
@@ -127,6 +139,12 @@ def main(argv: list[str] | None = None) -> None:
 
     global logger
     logger = setup_logger("train_logger", args.log_file)
+
+    if args.enable_metrics:
+        try:
+            start_metrics_server(args.metrics_port)
+        except OSError as exc:
+            logger.warning("Failed to start Prometheus metrics server: %s", exc)
 
     # Load training data with clearer error reporting
     try:

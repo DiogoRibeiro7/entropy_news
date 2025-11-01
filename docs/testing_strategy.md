@@ -22,46 +22,50 @@ strategy describes the additions implemented in this update.
 
 ## Continuous integration
 
-A GitHub Actions workflow (`.github/workflows/ci.yml`) orchestrates the test
-matrix:
+The `Quality Assurance` GitHub Actions workflow (`.github/workflows/ci.yml`)
+drives the automated suites:
 
-1. Unit tests: `pytest -q`
-2. Integration tests: `pytest -m integration -q`
-3. Performance checks: `pytest -m performance -q`
+1. **Cross-platform validation matrix:** Ubuntu (x86_64), Ubuntu (ARM64), and
+   Windows runners execute the core test suite. The Linux x86_64 job captures
+   coverage via `pytest --cov=entropy_news --cov-fail-under=95`, ensuring pull
+   requests fail if coverage dips below the Release 1.0 baseline.
+2. **Integration tests:** `pytest -m integration -q`
+3. **Performance checks:** `pytest -m performance -q`
 
-The workflow installs the project via Poetry, provisions CPU-only PyTorch, and
-exposes caching so the expanded suites remain maintainable for future releases.
+Each job uploads its textual report (and coverage XML for the Linux job) so
+historical artefacts can be trended in external dashboards.
 
 ## Quality metrics & coverage tracking
 
-- Coverage reporting will be generated via `pytest --cov entropy_news` on every
-  workflow job. Historical trends will be published as artefacts and surfaced in
-  dashboards to ensure the Release 1.0 target of 95% coverage stays on track.
-- Failing thresholds: pull requests will fail when coverage drops below the
-  rolling 95% baseline or when uncovered new modules are introduced without
-  accompanying tests.
-- A weekly scheduled run will refresh coverage badges and annotate the
-  implementation plan with any regressions that require engineering follow-up.
+- Coverage reporting now runs automatically on the Linux x86_64 matrix job via
+  `pytest --cov=entropy_news --cov-report=xml --cov-report=term --cov-fail-under=95`.
+  Generated reports are uploaded as artefacts and mirrored into dashboards for
+  longitudinal trend tracking.
+- The `--cov-fail-under=95` guard enforces the Release 1.0 coverage threshold.
+  Any module additions without sufficient tests or regressions below the limit
+  fail the pull request check.
+- Weekly report reviews feed updates into the implementation plan so newly
+  discovered gaps can be triaged promptly.
 
 ## Cross-platform automation
 
-- The CI matrix will expand to run on Linux (x86_64 and ARM64) and Windows
-  runners so distributed helpers and CLI tooling are validated on the platforms
-  targeted for Release 1.0 adoption.
-- Container images produced by the deployment workflow will be smoke-tested on
-  these operating systems to catch dependency drift early.
-- Platform-specific quirks (e.g., filesystem semantics, PowerShell path
-  handling) will be documented and cross-referenced in the deployment runbooks.
+- Core test jobs now run on Linux (x86_64 and ARM64) and Windows runners to
+  validate CLI tooling and distributed helpers on the Release 1.0 target
+  platforms.
+- Report artefacts from each runner surface parity dashboards so environment
+  regressions are visible immediately.
+- Platform-specific nuances (e.g., filesystem semantics, PowerShell path
+  handling) continue to be cross-referenced in deployment runbooks as gaps are
+  observed.
 
 ## Stress & reliability testing
 
-- Automated stress scenarios will execute extended rolling-window training jobs
-  with synthetic burst workloads to surface performance regressions or resource
-  leaks.
-- Stress runs will emit metrics (throughput, memory, checkpoint durations) to
-  the monitoring stack defined in the enterprise scalability milestone so they
-  can be reviewed alongside functional test results.
-- Failure signatures uncovered in stress tests will feed into runbooks and
+- Synthetic stress scenarios are implemented in `entropy_news.utils.stress` and
+  exercised via `pytest -m stress`.
+- A dedicated scheduled workflow (`.github/workflows/stress.yml`) runs every
+  Monday at 05:00 UTC and on manual dispatch, uploading its report artefact for
+  review alongside monitoring dashboards.
+- Failure signatures uncovered in stress runs feed into runbooks and
   troubleshooting guides ahead of Release 1.0.
 
 ## Local execution
@@ -69,9 +73,10 @@ exposes caching so the expanded suites remain maintainable for future releases.
 Developers can run the individual suites with dedicated commands:
 
 ```bash
-pytest -q                       # unit tests
+pytest -q                       # unit tests with coverage gating in CI
 pytest -m integration -q        # integration suite
 pytest -m performance -q        # performance checks
+pytest -m stress -q             # synthetic reliability scenarios
 ```
 
 The new markers are declared in `pytest.ini` to avoid unregistered-marker

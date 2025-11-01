@@ -15,6 +15,13 @@ from .cli import (
     load_base_config,
     resolve_model_config,
 )
+from .stress import (
+    StressReport,
+    StressScenario,
+    run_stress_matrix,
+    run_stress_scenario,
+    simulate_burst_workload,
+)
 
 __all__ = [
     "setup_logger",
@@ -37,4 +44,9 @@ __all__ = [
     "ConfigOverrides",
     "load_base_config",
     "resolve_model_config",
+    "StressScenario",
+    "StressReport",
+    "run_stress_scenario",
+    "run_stress_matrix",
+    "simulate_burst_workload",
 ]

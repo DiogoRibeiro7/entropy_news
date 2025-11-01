@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: entropy_orchestrator
+    static_configs:
+      - targets:
+          - orchestrator:9100
+        labels:
+          service: enterprise-orchestrator
+  - job_name: entropy_training_jobs
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - trainer-a:8000
+          - trainer-b:8000
+        labels:
+          service: entropy-trainer
+rule_files:
+  - alerts.yml
