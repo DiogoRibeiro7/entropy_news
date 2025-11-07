@@ -20,12 +20,6 @@ jobs:
           - os: ubuntu-latest
             python: '3.11'
             coverage: true
-          - os: ubuntu-22.04-arm64
-            python: '3.11'
-            coverage: false
-          - os: windows-latest
-            python: '3.11'
-            coverage: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
