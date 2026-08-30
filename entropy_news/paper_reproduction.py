@@ -1,7 +1,7 @@
 """Paper-faithful helpers for Glasserman, Mamaysky and Qin (2023).
 
 This module isolates the scientific contract of *New News is Bad News* from the
-broader Entropy News platform.  The paper's core quantities are:
+broader Entropy News platform. The paper's core quantities are:
 
 A_t = m_[t-6,t-1](t)
 B_t = m_[t-18,t-13](t-12)
@@ -16,11 +16,11 @@ so ENT_t = ENT_NEWS_t + ENT_MODEL_t by construction.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 import hashlib
 import math
 import random
-from collections.abc import Mapping, Sequence
 
 import torch
 
@@ -31,7 +31,7 @@ from entropy_news.utils import get_device
 
 @dataclass(frozen=True)
 class PaperProtocol:
-    """Defaults reported in Section 3.3 of the paper."""
+    """Defaults reported in the paper's language-model specification."""
 
     sequence_length: int = 100
     history_months: int = 6
@@ -57,8 +57,6 @@ class EntropyComponents:
     ENT_MODEL: float
 
     def as_dict(self) -> dict[str, float]:
-        """Return a machine-readable representation."""
-
         return asdict(self)
 
 
@@ -67,13 +65,7 @@ def decompose_entropy(
     year_ago_entropy: float,
     year_ago_model_on_current: float,
 ) -> EntropyComponents:
-    """Implement Equations (5) and (15) exactly.
-
-    Args:
-        current_entropy: ``m_[t-6,t-1](t)``.
-        year_ago_entropy: ``m_[t-18,t-13](t-12)``.
-        year_ago_model_on_current: ``m_[t-18,t-13](t)``.
-    """
+    """Implement the paper's year-over-year decomposition exactly."""
 
     ent = current_entropy - year_ago_entropy
     ent_news = year_ago_model_on_current - year_ago_entropy
@@ -90,14 +82,37 @@ def decompose_entropy(
     )
 
 
+def filter_articles(
+    texts: Sequence[str],
+    preprocessor: TextPreprocessor,
+    min_article_words: int,
+) -> list[str]:
+    """Return articles satisfying the protocol's post-cleaning length filter.
+
+    Filtering is performed before vocabulary construction, historical sampling,
+    model fitting, and evaluation so the statistical population is identical at
+    every stage of the reproduction.
+    """
+
+    if min_article_words < 2:
+        raise ValueError("min_article_words must be at least 2")
+
+    retained: list[str] = []
+    for text in texts:
+        cleaned = preprocessor.clean_text(text)
+        if len(preprocessor.tokenize(cleaned)) >= min_article_words:
+            retained.append(text)
+    return retained
+
+
 def chunk_articles_for_training(
     encoded_articles: Sequence[Sequence[int]], sequence_length: int = 100
 ) -> list[list[int]]:
     """Use every article token while resetting state between training chunks.
 
     ``NewsDataset`` consumes ``sequence_length + 1`` tokens to create a shifted
-    input/target pair of length ``sequence_length``.  Consecutive chunks overlap
-    by one token so no next-token target is lost at a chunk boundary.
+    input/target pair. Consecutive chunks overlap by one token so no next-token
+    target is lost at a chunk boundary.
     """
 
     if sequence_length <= 0:
@@ -108,8 +123,7 @@ def chunk_articles_for_training(
         tokens = list(article)
         if len(tokens) < 2:
             continue
-        step = sequence_length
-        for start in range(0, len(tokens) - 1, step):
+        for start in range(0, len(tokens) - 1, sequence_length):
             chunk = tokens[start : start + sequence_length + 1]
             if len(chunk) >= 2:
                 chunks.append(chunk)
@@ -121,11 +135,13 @@ def make_training_dataset(
     preprocessor: TextPreprocessor,
     sequence_length: int = 100,
     *,
+    min_article_words: int = 2,
     in_memory: bool = True,
 ) -> NewsDataset:
-    """Encode complete articles and create the paper-style chunk dataset."""
+    """Filter, encode complete articles, and create paper-style training chunks."""
 
-    encoded = [preprocessor.encode(text) for text in texts]
+    retained = filter_articles(texts, preprocessor, min_article_words)
+    encoded = [preprocessor.encode(text) for text in retained]
     chunks = chunk_articles_for_training(encoded, sequence_length)
     return NewsDataset(chunks, seq_len=sequence_length, in_memory=in_memory)
 
@@ -139,8 +155,8 @@ def _score_article(
 ) -> float:
     """Return average next-token negative log probability for one article.
 
-    The LSTM state is carried across chunks of the same article and reset for the
-    next article, matching the evaluation procedure described after Equation (4).
+    LSTM state is carried across chunks within one article and reset between
+    articles.
     """
 
     tokens = list(token_ids)
@@ -184,27 +200,19 @@ def monthly_article_entropy(
     min_article_words: int = 30,
     device: torch.device | None = None,
 ) -> float:
-    """Compute the equal-weighted monthly average of article entropies.
-
-    Each qualifying article contributes exactly one value to the monthly mean;
-    longer articles therefore do not receive larger weights.
-    """
+    """Compute the equal-weighted monthly mean of qualifying article entropies."""
 
     if sequence_length <= 0:
         raise ValueError("sequence_length must be positive")
-    if min_article_words < 2:
-        raise ValueError("min_article_words must be at least 2")
 
+    retained = filter_articles(texts, preprocessor, min_article_words)
     resolved_device = device or get_device()
     model = model.to(resolved_device)
     scores: list[float] = []
-    for text in texts:
-        encoded = preprocessor.encode(text)
-        if len(encoded) < min_article_words:
-            continue
+    for text in retained:
         score = _score_article(
             model,
-            encoded,
+            preprocessor.encode(text),
             sequence_length=sequence_length,
             device=resolved_device,
         )
@@ -228,12 +236,7 @@ def exponentially_sample_history(
     base_seed: int = 1729,
     evaluation_month: str,
 ) -> list[str]:
-    """Build the paper's monthly retraining sample.
-
-    All articles from ``t-1`` are retained, then fractions ``1/2, 1/4, ...``
-    are sampled from ``t-2`` through ``t-6``.  Sampling is deterministic for a
-    given base seed and evaluation month so the reproduction is auditable.
-    """
+    """Build the monthly update sample from six already-filtered prior months."""
 
     if len(prior_months_newest_first) != 6:
         raise ValueError("paper update requires exactly six prior months")
@@ -247,8 +250,7 @@ def exponentially_sample_history(
         if offset == 0:
             selected.extend(articles)
             continue
-        fraction = 0.5**offset
-        sample_size = int(len(articles) * fraction)
+        sample_size = int(len(articles) * (0.5**offset))
         if sample_size > 0:
             selected.extend(rng.sample(articles, sample_size))
     return selected
