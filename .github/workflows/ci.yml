@@ -42,11 +42,57 @@ jobs:
       - name: Enforce paper-reproduction coverage
         if: matrix.coverage == true
         run: |
-          pytest tests/test_paper_reproduction.py \
-            --cov=entropy_news.paper_reproduction \
-            --cov=entropy_news.paper_rolling \
-            --cov-report=term \
-            --cov-fail-under=87 -q
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          targets = {
+              "entropy_news/paper_reproduction.py",
+              "entropy_news/paper_rolling.py",
+          }
+          root = ET.parse("coverage.xml").getroot()
+          covered = 0
+          total = 0
+          found = set()
+
+          for cls in root.findall(".//class"):
+              filename = cls.attrib.get("filename", "").replace("\\", "/")
+              matched = next(
+                  (
+                      target
+                      for target in targets
+                      if filename.endswith(target)
+                      or filename.endswith(target.removeprefix("entropy_news/"))
+                  ),
+                  None,
+              )
+              if matched is None:
+                  continue
+              found.add(matched)
+              lines = cls.find("lines")
+              if lines is None:
+                  continue
+              for line in lines.findall("line"):
+                  total += 1
+                  if int(line.attrib.get("hits", "0")) > 0:
+                      covered += 1
+
+          missing = targets - found
+          if missing:
+              raise SystemExit(f"Missing paper modules from coverage.xml: {sorted(missing)}")
+          if total == 0:
+              raise SystemExit("No executable paper-module lines found in coverage.xml")
+
+          percentage = 100.0 * covered / total
+          print(
+              f"Paper-reproduction coverage: {covered}/{total} "
+              f"({percentage:.2f}%)"
+          )
+          if percentage < 87.0:
+              sys.exit(
+                  f"Paper-reproduction coverage {percentage:.2f}% is below 87.00%"
+              )
+          PY
       - name: Upload test report
         uses: actions/upload-artifact@v4
         with:
