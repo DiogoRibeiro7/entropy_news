@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import platform
+import subprocess
+import sys
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -41,6 +46,48 @@ class PaperMonthResult:
         cls, month: str, values: EntropyComponents
     ) -> "PaperMonthResult":
         return cls(month=month, **values.as_dict())
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _git_revision() -> str:
+    github_sha = os.environ.get("GITHUB_SHA")
+    if github_sha:
+        return github_sha
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+def _validate_consecutive_months(months: Sequence[str]) -> None:
+    if len(months) != len(set(months)):
+        raise ValueError("months must be unique and chronologically ordered")
+    periods: list[pd.Period] = []
+    for month in months:
+        try:
+            period = pd.Period(month, freq="M")
+        except ValueError as exc:
+            raise ValueError(f"invalid month {month!r}; expected YYYY-MM") from exc
+        if str(period) != month:
+            raise ValueError(f"invalid month {month!r}; expected zero-padded YYYY-MM")
+        periods.append(period)
+    for previous, current in zip(periods, periods[1:]):
+        if current != previous + 1:
+            raise ValueError(
+                "months must be strictly consecutive; "
+                f"expected {previous + 1} after {previous}, got {current}"
+            )
 
 
 def _paper_config(protocol: PaperProtocol, vocab_size: int) -> ModelConfig:
@@ -120,6 +167,71 @@ def _updated_model(
     return model
 
 
+def _write_provenance_manifest(
+    out: Path,
+    months: Sequence[str],
+    base_data_dir: str,
+    glove_path: str,
+    protocol: PaperProtocol,
+    learning_rate: float,
+    raw_counts: dict[str, int],
+    filtered_counts: dict[str, int],
+) -> None:
+    base = Path(base_data_dir)
+    glove = Path(glove_path)
+    monthly_inputs = []
+    for month in months:
+        path = base / f"news_{month}.txt"
+        monthly_inputs.append(
+            {
+                "month": month,
+                "file": path.name,
+                "sha256": _sha256(path),
+                "bytes": path.stat().st_size,
+                "raw_articles": raw_counts[month],
+                "qualifying_articles": filtered_counts[month],
+            }
+        )
+
+    result_path = out / "paper_entropy_results.csv"
+    protocol_path = out / "paper_protocol.json"
+    manifest = {
+        "manifest_version": 1,
+        "git_revision": _git_revision(),
+        "execution": {
+            "python": sys.version.split()[0],
+            "platform": platform.platform(),
+            "torch": torch.__version__,
+            "pandas": pd.__version__,
+            "learning_rate": learning_rate,
+        },
+        "protocol": asdict(protocol),
+        "months": list(months),
+        "inputs": {
+            "monthly_news": monthly_inputs,
+            "glove": {
+                "file": glove.name,
+                "sha256": _sha256(glove),
+                "bytes": glove.stat().st_size,
+            },
+        },
+        "outputs": {
+            "paper_entropy_results.csv": {
+                "sha256": _sha256(result_path),
+                "bytes": result_path.stat().st_size,
+            },
+            "paper_protocol.json": {
+                "sha256": _sha256(protocol_path),
+                "bytes": protocol_path.stat().st_size,
+            },
+        },
+    }
+    (out / "paper_run_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
 def run_paper_reproduction(
     months: Sequence[str],
     base_data_dir: str,
@@ -133,8 +245,9 @@ def run_paper_reproduction(
     """Run the causal rolling design used to construct the paper's ENT series.
 
     The model used to score month ``t`` is fit only with information through
-    ``t-1``. The same post-cleaning article-length filter is applied before
-    vocabulary construction, historical sampling, model fitting, and scoring.
+    ``t-1``. The paper path requires GloVe embeddings, strictly consecutive
+    monthly inputs, and emits a byte-level provenance manifest when outputs are
+    written.
     """
 
     protocol = protocol or PaperProtocol()
@@ -143,8 +256,12 @@ def run_paper_reproduction(
         raise ValueError(
             f"at least {required_months} ordered months are required for paper ENT"
         )
-    if len(months) != len(set(months)):
-        raise ValueError("months must be unique and chronologically ordered")
+    _validate_consecutive_months(months)
+    if glove_path is None:
+        raise ValueError("paper reproduction requires --glove-path")
+    glove = Path(glove_path)
+    if not glove.is_file():
+        raise FileNotFoundError(f"GloVe file not found: {glove_path}")
 
     preprocessor = TextPreprocessor(vocab_size=protocol.vocabulary_size)
     raw_month_articles = {
@@ -171,13 +288,12 @@ def run_paper_reproduction(
         text for month in initial_months for text in month_articles[month]
     ]
     preprocessor.build_vocab(initial_texts)
-    if glove_path:
-        preprocessor.load_glove_embeddings(
-            glove_path,
-            embedding_dim=protocol.embedding_dim,
-            seed=protocol.sampling_seed,
-            show_progress=show_progress,
-        )
+    preprocessor.load_glove_embeddings(
+        glove_path,
+        embedding_dim=protocol.embedding_dim,
+        seed=protocol.sampling_seed,
+        show_progress=show_progress,
+    )
 
     device = get_device()
     first_eval_idx = protocol.history_months
@@ -272,6 +388,16 @@ def run_paper_reproduction(
             json.dumps(asdict(protocol), indent=2, sort_keys=True),
             encoding="utf-8",
         )
+        _write_provenance_manifest(
+            out,
+            months,
+            base_data_dir,
+            glove_path,
+            protocol,
+            learning_rate,
+            {month: len(raw_month_articles[month]) for month in months},
+            {month: len(month_articles[month]) for month in months},
+        )
     return results
 
 
@@ -279,10 +405,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run the paper-faithful New News is Bad News entropy protocol"
     )
-    parser.add_argument("months", nargs="+", help="Ordered YYYY-MM months")
+    parser.add_argument("months", nargs="+", help="Consecutive YYYY-MM months")
     parser.add_argument("--base-data-dir", default="data/")
     parser.add_argument("--output-dir", default="output/paper_reproduction")
-    parser.add_argument("--glove-path", default=None)
+    parser.add_argument("--glove-path", required=True)
     parser.add_argument("--learning-rate", type=float, default=0.001)
     parser.add_argument("--no-progress", action="store_false", dest="progress")
     parser.set_defaults(progress=True)
