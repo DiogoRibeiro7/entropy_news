@@ -1,0 +1,12 @@
+{
+  "mode": "empirical_reuters_replication",
+  "source_name": "Reuters",
+  "source_period_start": "1996-01",
+  "source_period_end": "2022-12",
+  "first_rewrite_only": true,
+  "language": "English",
+  "company_universe": "S&P 500",
+  "headline_exclusions_applied": true,
+  "min_article_words": 30,
+  "notes": "Declaration only. Preserve independent receipts/evidence for source provenance and filtering."
+}
