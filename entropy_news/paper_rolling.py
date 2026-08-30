@@ -10,21 +10,27 @@ import platform
 import subprocess
 import sys
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import pandas as pd
 import torch
 
 from entropy_news.data import TextPreprocessor
-from entropy_news.model import ModelConfig, ModelFactory, Trainer
+from entropy_news.model import Trainer
+from entropy_news.model.paper_lstm import PaperEntropyLSTM
+from entropy_news.paper_architecture import (
+    PAPER_TARGET_IGNORE_INDEX,
+    build_paper_vocabulary,
+    load_paper_glove_embeddings,
+    make_paper_training_dataset,
+)
 from entropy_news.paper_reproduction import (
     EntropyComponents,
     PaperProtocol,
     decompose_entropy,
     exponentially_sample_history,
     filter_articles,
-    make_training_dataset,
     monthly_article_entropy,
 )
 from entropy_news.rolling_train_forecast import load_texts_for_month
@@ -90,75 +96,88 @@ def _validate_consecutive_months(months: Sequence[str]) -> None:
             )
 
 
-def _paper_config(protocol: PaperProtocol, vocab_size: int) -> ModelConfig:
-    return ModelConfig(
-        architecture="lstm",
-        vocab_size=vocab_size,
+def _new_paper_model(
+    preprocessor: TextPreprocessor,
+    protocol: PaperProtocol,
+    padding_id: int,
+    device: torch.device,
+) -> PaperEntropyLSTM:
+    model = PaperEntropyLSTM(
+        protocol.vocabulary_size,
         embed_dim=protocol.embedding_dim,
         hidden_dim=protocol.hidden_dim,
-        num_heads=1,
-        ff_dim=128,
-        num_layers=1,
-        dropout=0.0,
-    )
+        embedding_matrix=preprocessor.embedding_matrix,
+        padding_idx=padding_id,
+    ).to(device)
+    if protocol == PaperProtocol() and model.trainable_parameter_count() != 177_488:
+        raise RuntimeError(
+            "paper default architecture must have exactly 177488 trainable parameters"
+        )
+    return model
 
 
 def _fit_initial_model(
     texts: Sequence[str],
     preprocessor: TextPreprocessor,
     protocol: PaperProtocol,
+    padding_id: int,
     *,
     learning_rate: float,
     device: torch.device,
     show_progress: bool,
-):
-    dataset = make_training_dataset(
+) -> PaperEntropyLSTM:
+    dataset = make_paper_training_dataset(
         texts,
         preprocessor,
         protocol.sequence_length,
         min_article_words=protocol.min_article_words,
+        padding_id=padding_id,
     )
     if len(dataset) == 0:
         raise ValueError("initial six-month window has no trainable article chunks")
-    config = _paper_config(protocol, len(preprocessor.vocab))
-    model = ModelFactory.create(
-        config,
-        embedding_matrix=preprocessor.embedding_matrix,
-    ).to(device)
-    Trainer(model, learning_rate=learning_rate, device=device).train(
+    model = _new_paper_model(preprocessor, protocol, padding_id, device)
+    Trainer(
+        model,
+        learning_rate=learning_rate,
+        device=device,
+        ignore_index=PAPER_TARGET_IGNORE_INDEX,
+    ).train(
         dataset,
         epochs=protocol.epochs,
         batch_size=protocol.batch_size,
         show_progress=show_progress,
     )
-    return model, config
+    return model
 
 
 def _updated_model(
-    previous_model,
+    previous_model: PaperEntropyLSTM,
     update_texts: Sequence[str],
     preprocessor: TextPreprocessor,
-    config: ModelConfig,
     protocol: PaperProtocol,
+    padding_id: int,
     *,
     learning_rate: float,
     device: torch.device,
     show_progress: bool,
-):
-    model = ModelFactory.create(
-        replace(config, vocab_size=len(preprocessor.vocab)),
-        embedding_matrix=preprocessor.embedding_matrix,
-    ).to(device)
+) -> PaperEntropyLSTM:
+    model = _new_paper_model(preprocessor, protocol, padding_id, device)
     model.load_state_dict(previous_model.state_dict())
-    dataset = make_training_dataset(
+    dataset = make_paper_training_dataset(
         update_texts,
         preprocessor,
         protocol.sequence_length,
         min_article_words=protocol.min_article_words,
+        padding_id=padding_id,
     )
     if len(dataset) == 0:
         raise ValueError("monthly update sample has no trainable article chunks")
-    Trainer(model, learning_rate=learning_rate, device=device).fine_tune(
+    Trainer(
+        model,
+        learning_rate=learning_rate,
+        device=device,
+        ignore_index=PAPER_TARGET_IGNORE_INDEX,
+    ).fine_tune(
         dataset,
         epochs=protocol.epochs,
         batch_size=protocol.batch_size,
@@ -177,6 +196,8 @@ def _write_provenance_manifest(
     raw_counts: dict[str, int],
     filtered_counts: dict[str, int],
     vocabulary_entries: int,
+    padding_id: int,
+    trainable_parameters: int,
 ) -> None:
     base = Path(base_data_dir)
     glove = Path(glove_path)
@@ -198,7 +219,7 @@ def _write_provenance_manifest(
     protocol_path = out / "paper_protocol.json"
     vocabulary_path = out / "paper_vocabulary.json"
     manifest = {
-        "manifest_version": 2,
+        "manifest_version": 3,
         "git_revision": _git_revision(),
         "execution": {
             "python": sys.version.split()[0],
@@ -209,10 +230,18 @@ def _write_provenance_manifest(
         },
         "protocol": asdict(protocol),
         "months": list(months),
+        "architecture": {
+            "predictive_classes": protocol.vocabulary_size,
+            "lexical_classes": protocol.vocabulary_size - 1,
+            "unk_class": 0,
+            "padding_id": padding_id,
+            "padding_is_predictive_class": False,
+            "lstm_bias_vectors": 1,
+            "trainable_parameters": trainable_parameters,
+        },
         "vocabulary": {
             "scope": "whole_requested_corpus",
-            "configured_top_words": protocol.vocabulary_size,
-            "actual_entries_including_reserved_tokens": vocabulary_entries,
+            "predictive_entries": vocabulary_entries,
         },
         "inputs": {
             "monthly_news": monthly_inputs,
@@ -253,16 +282,6 @@ def run_paper_reproduction(
     output_dir: str | None = None,
     show_progress: bool = True,
 ) -> list[PaperMonthResult]:
-    """Run the rolling design used to construct the paper's ENT series.
-
-    The model used to score month ``t`` is fit only with information through
-    ``t-1``. Following the paper literally, the vocabulary is selected from the
-    whole requested corpus before rolling model training. Thus vocabulary
-    membership can use later corpus information even though model weights do
-    not. The paper path also requires GloVe embeddings, strictly consecutive
-    monthly inputs, and emits byte-level provenance when outputs are written.
-    """
-
     protocol = protocol or PaperProtocol()
     required_months = protocol.history_months + protocol.year_lag + 1
     if len(months) < required_months:
@@ -296,28 +315,30 @@ def run_paper_reproduction(
             f"requested month; empty after filtering: {listed}"
         )
 
-    whole_corpus_texts = [
-        text for month in months for text in month_articles[month]
-    ]
-    preprocessor.build_vocab(whole_corpus_texts)
-
-    initial_months = list(months[: protocol.history_months])
-    initial_texts = [
-        text for month in initial_months for text in month_articles[month]
-    ]
-    preprocessor.load_glove_embeddings(
+    whole_corpus_texts = [text for month in months for text in month_articles[month]]
+    padding_id = build_paper_vocabulary(
+        preprocessor,
+        whole_corpus_texts,
+        protocol.vocabulary_size,
+    )
+    load_paper_glove_embeddings(
+        preprocessor,
         glove_path,
         embedding_dim=protocol.embedding_dim,
         seed=protocol.sampling_seed,
+        padding_id=padding_id,
         show_progress=show_progress,
     )
 
+    initial_months = list(months[: protocol.history_months])
+    initial_texts = [text for month in initial_months for text in month_articles[month]]
     device = get_device()
     first_eval_idx = protocol.history_months
-    model, config = _fit_initial_model(
+    model = _fit_initial_model(
         initial_texts,
         preprocessor,
         protocol,
+        padding_id,
         learning_rate=learning_rate,
         device=device,
         show_progress=show_progress,
@@ -343,18 +364,16 @@ def run_paper_reproduction(
                 model,
                 update_texts,
                 preprocessor,
-                config,
                 protocol,
+                padding_id,
                 learning_rate=learning_rate,
                 device=device,
                 show_progress=show_progress,
             )
 
         model_states[month] = {
-            key: value.detach().cpu().clone()
-            for key, value in model.state_dict().items()
+            key: value.detach().cpu().clone() for key, value in model.state_dict().items()
         }
-
         current_entropy = monthly_article_entropy(
             model,
             month_articles[month],
@@ -374,11 +393,7 @@ def run_paper_reproduction(
         lag_state = model_states.get(lag_month)
         if lag_state is None:
             raise RuntimeError(f"missing retained model state for lag month {lag_month}")
-
-        lag_model = ModelFactory.create(
-            replace(config, vocab_size=len(preprocessor.vocab)),
-            embedding_matrix=preprocessor.embedding_matrix,
-        ).to(device)
+        lag_model = _new_paper_model(preprocessor, protocol, padding_id, device)
         lag_model.load_state_dict(lag_state)
         lag_on_current = monthly_article_entropy(
             lag_model,
@@ -402,8 +417,7 @@ def run_paper_reproduction(
             out / "paper_entropy_results.csv", index=False
         )
         (out / "paper_protocol.json").write_text(
-            json.dumps(asdict(protocol), indent=2, sort_keys=True),
-            encoding="utf-8",
+            json.dumps(asdict(protocol), indent=2, sort_keys=True), encoding="utf-8"
         )
         preprocessor.save_vocab(str(out / "paper_vocabulary.json"))
         _write_provenance_manifest(
@@ -416,6 +430,8 @@ def run_paper_reproduction(
             {month: len(raw_month_articles[month]) for month in months},
             {month: len(month_articles[month]) for month in months},
             len(preprocessor.vocab),
+            padding_id,
+            model.trainable_parameter_count(),
         )
     return results
 
