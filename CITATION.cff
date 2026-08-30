@@ -1,12 +1,27 @@
 cff-version: 1.2.0
-message: "If you use this package, please cite it as below."
+message: "If you use this software, please cite Entropy News and the source paper listed below."
 title: "Entropy News"
+type: software
 version: "0.1.0"
 license: MIT
+repository-code: https://github.com/DiogoRibeiro7/entropy_news
 url: https://github.com/DiogoRibeiro7/entropy_news
 authors:
   - family-names: Ribeiro
     given-names: Diogo
     orcid: https://orcid.org/0009-0001-2022-7072
-    affiliation: ESMAD - Instituto Politécnico do Porto
+    affiliation: Faculty of Media Arts and Design, Technical University of Porto
     email: dfr@esmad.ipp.pt
+references:
+  - type: article
+    title: "New News is Bad News: Information, Expectations, and Financial Markets"
+    authors:
+      - family-names: Glasserman
+        given-names: Paul
+      - family-names: Mamaysky
+        given-names: Harry
+      - family-names: Qin
+        given-names: Jimmy
+    year: 2023
+    doi: 10.2139/ssrn.4555832
+    url: https://ssrn.com/abstract=4555832
