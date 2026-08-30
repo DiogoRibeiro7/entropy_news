@@ -1,18 +1,4 @@
-"""Paper-faithful helpers for Glasserman, Mamaysky and Qin (2023).
-
-This module isolates the scientific contract of *New News is Bad News* from the
-broader Entropy News platform. The paper's core quantities are:
-
-A_t = m_[t-6,t-1](t)
-B_t = m_[t-18,t-13](t-12)
-C_t = m_[t-18,t-13](t)
-
-ENT_t       = A_t - B_t
-ENT_NEWS_t  = C_t - B_t
-ENT_MODEL_t = A_t - C_t
-
-so ENT_t = ENT_NEWS_t + ENT_MODEL_t by construction.
-"""
+"""Paper-faithful helpers for Glasserman, Mamaysky and Qin (2023)."""
 
 from __future__ import annotations
 
@@ -26,6 +12,7 @@ import torch
 
 from entropy_news.data import NewsDataset, TextPreprocessor
 from entropy_news.model import EntropyLSTM
+from entropy_news.model.paper_lstm import PaperEntropyLSTM
 from entropy_news.utils import get_device
 
 
@@ -47,8 +34,6 @@ class PaperProtocol:
 
 @dataclass(frozen=True)
 class EntropyComponents:
-    """Equation (5) and Equation (15) quantities for one month."""
-
     current_entropy: float
     year_ago_entropy: float
     year_ago_model_on_current: float
@@ -65,8 +50,6 @@ def decompose_entropy(
     year_ago_entropy: float,
     year_ago_model_on_current: float,
 ) -> EntropyComponents:
-    """Implement the paper's year-over-year decomposition exactly."""
-
     ent = current_entropy - year_ago_entropy
     ent_news = year_ago_model_on_current - year_ago_entropy
     ent_model = current_entropy - year_ago_model_on_current
@@ -87,16 +70,8 @@ def filter_articles(
     preprocessor: TextPreprocessor,
     min_article_words: int,
 ) -> list[str]:
-    """Return articles satisfying the protocol's post-cleaning length filter.
-
-    Filtering is performed before vocabulary construction, historical sampling,
-    model fitting, and evaluation so the statistical population is identical at
-    every stage of the reproduction.
-    """
-
     if min_article_words < 2:
         raise ValueError("min_article_words must be at least 2")
-
     retained: list[str] = []
     for text in texts:
         cleaned = preprocessor.clean_text(text)
@@ -108,16 +83,8 @@ def filter_articles(
 def chunk_articles_for_training(
     encoded_articles: Sequence[Sequence[int]], sequence_length: int = 100
 ) -> list[list[int]]:
-    """Use every article token while resetting state between training chunks.
-
-    ``NewsDataset`` consumes ``sequence_length + 1`` tokens to create a shifted
-    input/target pair. Consecutive chunks overlap by one token so no next-token
-    target is lost at a chunk boundary.
-    """
-
     if sequence_length <= 0:
         raise ValueError("sequence_length must be positive")
-
     chunks: list[list[int]] = []
     for article in encoded_articles:
         tokens = list(article)
@@ -138,8 +105,6 @@ def make_training_dataset(
     min_article_words: int = 2,
     in_memory: bool = True,
 ) -> NewsDataset:
-    """Filter, encode complete articles, and create paper-style training chunks."""
-
     retained = filter_articles(texts, preprocessor, min_article_words)
     encoded = [preprocessor.encode(text) for text in retained]
     chunks = chunk_articles_for_training(encoded, sequence_length)
@@ -147,27 +112,19 @@ def make_training_dataset(
 
 
 def _score_article(
-    model: EntropyLSTM,
+    model: EntropyLSTM | PaperEntropyLSTM,
     token_ids: Sequence[int],
     *,
     sequence_length: int,
     device: torch.device,
 ) -> float:
-    """Return the paper's mean negative log probability for one article.
-
-    The paper averages over all ``N`` words. The first word is scored from a
-    zero input vector and zero recurrent state; subsequent words are scored from
-    preceding article words. LSTM state is carried across chunks within one
-    article and reset between articles.
-    """
-
+    """Return mean negative log probability over all article words."""
     tokens = list(token_ids)
     if not tokens:
         return float("nan")
 
     total_log_prob = 0.0
     total_tokens = 0
-
     model.eval()
     with torch.no_grad():
         zero_input = torch.zeros(
@@ -175,7 +132,10 @@ def _score_article(
             dtype=model.embedding.weight.dtype,
             device=device,
         )
-        first_output, state = model.lstm(zero_input, None)
+        if isinstance(model, PaperEntropyLSTM):
+            first_output, state = model.forward_embeddings(zero_input, None)
+        else:
+            first_output, state = model.lstm(zero_input, None)
         first_logits = model.fc(first_output)
         first_log_probs = torch.log_softmax(first_logits, dim=-1)
         total_log_prob += first_log_probs[0, 0, tokens[0]].item()
@@ -204,7 +164,7 @@ def _score_article(
 
 
 def monthly_article_entropy(
-    model: EntropyLSTM,
+    model: EntropyLSTM | PaperEntropyLSTM,
     texts: Sequence[str],
     preprocessor: TextPreprocessor,
     *,
@@ -212,11 +172,8 @@ def monthly_article_entropy(
     min_article_words: int = 30,
     device: torch.device | None = None,
 ) -> float:
-    """Compute the equal-weighted monthly mean of qualifying article entropies."""
-
     if sequence_length <= 0:
         raise ValueError("sequence_length must be positive")
-
     retained = filter_articles(texts, preprocessor, min_article_words)
     resolved_device = device or get_device()
     model = model.to(resolved_device)
@@ -230,7 +187,6 @@ def monthly_article_entropy(
         )
         if math.isfinite(score):
             scores.append(score)
-
     if not scores:
         return float("inf")
     return sum(scores) / len(scores)
@@ -248,11 +204,8 @@ def exponentially_sample_history(
     base_seed: int = 1729,
     evaluation_month: str,
 ) -> list[str]:
-    """Build the monthly update sample from six already-filtered prior months."""
-
     if len(prior_months_newest_first) != 6:
         raise ValueError("paper update requires exactly six prior months")
-
     rng = random.Random(_stable_month_seed(base_seed, evaluation_month))
     selected: list[str] = []
     for offset, month in enumerate(prior_months_newest_first):
