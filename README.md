@@ -2,7 +2,7 @@
 
 Python research software for reproducing and extending the financial-news entropy methodology in **Glasserman, Mamaysky, and Qin (2023), _New News is Bad News_**.
 
-The repository now separates two distinct layers:
+The repository separates two distinct layers:
 
 1. **Paper reproduction core** — a causal rolling implementation of the paper's monthly entropy measure and its `ENT_NEWS` / `ENT_MODEL` decomposition.
 2. **Research and engineering extensions** — alternative architectures, one-month model-update diagnostics, market-data tooling, causal analysis, dashboards, distributed training, monitoring, and deployment support.
@@ -100,7 +100,7 @@ For the closest reproduction of the paper, use the reported LSTM specification a
 
 ## One-month diagnostics are not paper ENT
 
-`entropy-news-forecast` remains useful for comparing a baseline model and an updated model on a single dataset. It now reports:
+`entropy-news-forecast` remains useful for comparing a baseline model and an updated model on a single dataset. It reports:
 
 ```text
 baseline_entropy
@@ -188,11 +188,11 @@ They remain useful research and engineering extensions, but they should not be c
 
 ## Reference
 
-Paul Glasserman, Harry Mamaysky, and Jimmy Qin. (2023). _New News is Bad News: Information, Expectations, and Financial Markets_. arXiv:2309.05560 / SSRN 4555832.
+Paul Glasserman, Harry Mamaysky, and Jimmy Qin. (2023). _New News is Bad News: Information, Expectations, and Financial Markets_. SSRN 4555832. DOI: `10.2139/ssrn.4555832`. Also available as arXiv:2309.05560.
 
 ## Author
 
-Diogo Ribeiro — ESMAD, Instituto Politécnico do Porto  
+Diogo Ribeiro — Faculty of Media Arts and Design, Technical University of Porto  
 ORCID: 0009-0001-2022-7072
 
 ## License
