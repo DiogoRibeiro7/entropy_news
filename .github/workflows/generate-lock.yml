@@ -1,0 +1,39 @@
+name: Generate Poetry Lockfile
+
+on:
+  push:
+    branches:
+      - chore/generate-poetry-lock
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/generate-poetry-lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Poetry
+        run: pip install poetry==1.7.1
+      - name: Generate lockfile
+        run: poetry lock
+      - name: Verify locked install
+        run: |
+          poetry config virtualenvs.create false
+          poetry install --with torch --with dev --no-interaction
+      - name: Commit lockfile
+        run: |
+          if git diff --quiet -- poetry.lock && git ls-files --error-unmatch poetry.lock >/dev/null 2>&1; then
+            echo "poetry.lock is already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add poetry.lock
+          git commit -m "chore: add canonical Poetry lockfile"
+          git push origin HEAD:chore/generate-poetry-lock
