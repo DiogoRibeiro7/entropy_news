@@ -98,9 +98,23 @@ def test_paper_runner_requires_glove(tmp_path) -> None:
         run_paper_reproduction(_months(), str(tmp_path), show_progress=False)
 
 
+def test_paper_runner_rejects_duplicate_months(tmp_path) -> None:
+    months = _months()
+    months[5] = months[4]
+    glove = tmp_path / "glove.txt"
+    glove.write_text("market 0.1 0.2 0.3 0.4\n")
+    with pytest.raises(ValueError, match="unique"):
+        run_paper_reproduction(
+            months,
+            str(tmp_path),
+            glove_path=str(glove),
+            show_progress=False,
+        )
+
+
 def test_paper_runner_rejects_nonconsecutive_months(tmp_path) -> None:
     months = _months()
-    months[5] = "2022-07"
+    months[-1] = "2023-08"
     glove = tmp_path / "glove.txt"
     glove.write_text("market 0.1 0.2 0.3 0.4\n")
     with pytest.raises(ValueError, match="strictly consecutive"):
@@ -108,6 +122,17 @@ def test_paper_runner_rejects_nonconsecutive_months(tmp_path) -> None:
             months,
             str(tmp_path),
             glove_path=str(glove),
+            show_progress=False,
+        )
+
+
+def test_paper_runner_rejects_missing_glove_file(tmp_path) -> None:
+    missing = tmp_path / "missing-glove.txt"
+    with pytest.raises(FileNotFoundError, match="GloVe file not found"):
+        run_paper_reproduction(
+            _months(),
+            str(tmp_path),
+            glove_path=str(missing),
             show_progress=False,
         )
 
