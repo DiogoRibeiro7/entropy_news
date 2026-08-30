@@ -4,7 +4,7 @@ Python research software for reproducing and extending the financial-news entrop
 
 The repository separates two distinct layers:
 
-1. **Paper reproduction core** — a causal rolling implementation of the paper's monthly entropy measure and its `ENT_NEWS` / `ENT_MODEL` decomposition.
+1. **Paper reproduction core** — a rolling implementation of the paper's monthly entropy measure and its `ENT_NEWS` / `ENT_MODEL` decomposition.
 2. **Research and engineering extensions** — alternative architectures, one-month model-update diagnostics, market-data tooling, causal analysis, dashboards, distributed training, monitoring, and deployment support.
 
 That distinction matters: the paper's `ENT` is a 12-month change in monthly article entropy, not a one-month cross-entropy level.
@@ -41,9 +41,9 @@ ENT_t = ENT\_NEWS_t + ENT\_MODEL_t
 
 by construction.
 
-The implementation is designed around the paper's information set:
+The implementation follows the paper's reported rolling training design:
 
-- month `t` is **never used to fit the model that scores month `t`**;
+- month `t` is **never used to fit the model weights that score month `t`**;
 - the initial language model is trained on six prior months;
 - subsequent monthly updates warm-start the previous model and use all articles from `t-1`, then exponentially downsampled articles from `t-2` through `t-6`;
 - complete articles are used rather than truncating each article to its first sequence;
@@ -51,7 +51,10 @@ The implementation is designed around the paper's information set:
 - monthly entropy is the **equal-weighted mean of article entropies**, so long articles do not receive larger weights merely because they contain more tokens;
 - the 12-month lagged model is retained so `ENT_NEWS` and `ENT_MODEL` use the paper's actual decomposition rather than two entropy levels from the same month;
 - requested months must be strictly consecutive calendar months;
-- the paper path requires an explicit GloVe file rather than silently falling back to random embeddings.
+- the paper path requires an explicit GloVe file rather than silently falling back to random embeddings;
+- following the paper literally, the vocabulary is selected from the **whole requested corpus** before rolling model training.
+
+The last point is important. The rolling model weights remain causal, but vocabulary membership can reflect later corpus observations because the paper defines its retained vocabulary over the whole corpus. This is therefore a paper-reproduction choice, not a strictly real-time vocabulary construction rule.
 
 The scientific contract lives in:
 
@@ -84,6 +87,7 @@ At least 19 consecutive months are required before a paper `ENT` observation can
 ```text
 output/paper_reproduction/paper_entropy_results.csv
 output/paper_reproduction/paper_protocol.json
+output/paper_reproduction/paper_vocabulary.json
 output/paper_reproduction/paper_run_manifest.json
 ```
 
@@ -99,9 +103,9 @@ ENT_NEWS
 ENT_MODEL
 ```
 
-`paper_run_manifest.json` records the execution environment, Git revision, learning rate, protocol, every requested monthly input file, raw and qualifying article counts, SHA-256 hashes and byte sizes for all monthly inputs and the GloVe file, plus SHA-256 hashes of the result and protocol outputs. It is intended to make manuscript-facing runs independently auditable at the byte level.
+`paper_vocabulary.json` stores the exact token-to-index mapping used by the run. `paper_run_manifest.json` records the execution environment, Git revision, learning rate, protocol, vocabulary scope and actual size, every requested monthly input file, raw and qualifying article counts, SHA-256 hashes and byte sizes for all monthly inputs and the GloVe file, plus SHA-256 hashes of the result, protocol and vocabulary outputs.
 
-For the closest reproduction of the paper, use the reported LSTM specification and 100-dimensional GloVe vectors. The code keeps those values in `PaperProtocol` rather than mixing them with later Transformer or attention experiments.
+The paper text says it retains the 10,000 most frequent words and maps other words to `UNK`, while also reporting a 10,000-unit output layer. The current implementation exposes both the configured top-word count and the actual model-vocabulary entry count in the manifest rather than silently resolving that wording ambiguity. A future architecture change should only be made if the original implementation or supplementary source establishes the intended class-count convention.
 
 ## One-month diagnostics are not paper ENT
 
@@ -151,7 +155,7 @@ For GloVe 100-dimensional embeddings, use the Stanford GloVe distribution and pa
 
 | Command | Purpose |
 | --- | --- |
-| `entropy-news-paper` | Paper-faithful causal rolling entropy reproduction |
+| `entropy-news-paper` | Paper reproduction rolling entropy path |
 | `entropy-news-train` | Train a configurable language model |
 | `entropy-news-forecast` | One-month baseline-vs-updated entropy diagnostics |
 | `entropy-news-rolling` | Generic rolling/fine-tuning research workflow |
@@ -173,13 +177,14 @@ The reproduction tests specifically lock:
 - separation of paper metrics from one-month diagnostic labels;
 - mandatory GloVe for the strict paper path;
 - consecutive-month validation;
+- whole-requested-corpus vocabulary construction;
 - byte-level input/output provenance in the run manifest.
 
 ## Data and reproducibility
 
 The original Reuters corpus used in the paper is not distributed with this repository. Users must supply a legally obtained corpus with monthly article boundaries. A run that uses another news source can validate the implementation but should be described as a **methodological reproduction on alternative data**, not an empirical replication of the paper's Reuters results.
 
-Every paper run with an output directory records both the protocol and a provenance manifest. Keep these files with any manuscript-facing result so the exact data files, GloVe bytes, filtering counts, random seed, software revision and generated outputs can be audited later.
+Every paper run with an output directory records the protocol, vocabulary and provenance manifest. Keep these files with any manuscript-facing result so the exact data files, GloVe bytes, filtering counts, random seed, vocabulary, software revision and generated outputs can be audited later.
 
 ## Extensions
 
