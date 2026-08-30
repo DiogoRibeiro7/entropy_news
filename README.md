@@ -49,7 +49,9 @@ The implementation is designed around the paper's information set:
 - complete articles are used rather than truncating each article to its first sequence;
 - recurrent state is carried across chunks of the same article and reset between articles;
 - monthly entropy is the **equal-weighted mean of article entropies**, so long articles do not receive larger weights merely because they contain more tokens;
-- the 12-month lagged model is retained so `ENT_NEWS` and `ENT_MODEL` use the paper's actual decomposition rather than two entropy levels from the same month.
+- the 12-month lagged model is retained so `ENT_NEWS` and `ENT_MODEL` use the paper's actual decomposition rather than two entropy levels from the same month;
+- requested months must be strictly consecutive calendar months;
+- the paper path requires an explicit GloVe file rather than silently falling back to random embeddings.
 
 The scientific contract lives in:
 
@@ -65,7 +67,7 @@ Monthly files are expected as:
 data/news_YYYY-MM.txt
 ```
 
-with one article per non-empty line.
+with one article per non-empty line. The month arguments must form an unbroken monthly sequence.
 
 Install the project and PyTorch dependencies, then run:
 
@@ -77,11 +79,12 @@ entropy-news-paper \
   --output-dir output/paper_reproduction
 ```
 
-At least 19 ordered months are required before a paper `ENT` observation can be formed. The runner writes:
+At least 19 consecutive months are required before a paper `ENT` observation can be formed. The runner writes:
 
 ```text
 output/paper_reproduction/paper_entropy_results.csv
 output/paper_reproduction/paper_protocol.json
+output/paper_reproduction/paper_run_manifest.json
 ```
 
 The CSV contains:
@@ -95,6 +98,8 @@ ENT
 ENT_NEWS
 ENT_MODEL
 ```
+
+`paper_run_manifest.json` records the execution environment, Git revision, learning rate, protocol, every requested monthly input file, raw and qualifying article counts, SHA-256 hashes and byte sizes for all monthly inputs and the GloVe file, plus SHA-256 hashes of the result and protocol outputs. It is intended to make manuscript-facing runs independently auditable at the byte level.
 
 For the closest reproduction of the paper, use the reported LSTM specification and 100-dimensional GloVe vectors. The code keeps those values in `PaperProtocol` rather than mixing them with later Transformer or attention experiments.
 
@@ -116,7 +121,7 @@ Likewise, `entropy-news-rolling` is retained as a generic rolling/fine-tuning wo
 
 The repository includes:
 
-- LSTM language modelling with optional frozen GloVe embeddings;
+- LSTM language modelling with optional frozen GloVe embeddings outside the strict paper path;
 - alternative LSTM-attention and Transformer architectures for extensions;
 - configurable preprocessing and vocabularies;
 - streaming datasets for larger corpora;
@@ -165,13 +170,16 @@ The reproduction tests specifically lock:
 - complete-article chunk coverage;
 - deterministic exponential historical sampling;
 - equal weighting across articles;
-- separation of paper metrics from one-month diagnostic labels.
+- separation of paper metrics from one-month diagnostic labels;
+- mandatory GloVe for the strict paper path;
+- consecutive-month validation;
+- byte-level input/output provenance in the run manifest.
 
 ## Data and reproducibility
 
 The original Reuters corpus used in the paper is not distributed with this repository. Users must supply a legally obtained corpus with monthly article boundaries. A run that uses another news source can validate the implementation but should be described as a **methodological reproduction on alternative data**, not an empirical replication of the paper's Reuters results.
 
-The reproduction runner records its protocol parameters in JSON alongside the output. Exact data provenance, corpus filtering, GloVe file identity, random seeds, and Git revision should be recorded for any manuscript-facing replication.
+Every paper run with an output directory records both the protocol and a provenance manifest. Keep these files with any manuscript-facing result so the exact data files, GloVe bytes, filtering counts, random seed, software revision and generated outputs can be audited later.
 
 ## Extensions
 
