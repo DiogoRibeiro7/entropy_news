@@ -30,7 +30,15 @@ def test_news_model_update_dummy_lstm() -> None:
     new_model.fc.bias.data[1] = 1e3
     calc = NewsModelUpdateCalculator(old_model, new_model)
     result = calc.compute_entropies(dataset, batch_size=1)
-    assert set(result.keys()) == {"ENT", "ENT_news", "ENT_model"}
-    assert math.isclose(result["ENT_news"], math.log(5), rel_tol=1e-5)
-    assert result["ENT"] < 1e-3
-    assert math.isclose(result["ENT_model"], result["ENT"] - result["ENT_news"], rel_tol=1e-6)
+    assert set(result.keys()) == {
+        "baseline_entropy",
+        "updated_entropy",
+        "model_update_delta",
+    }
+    assert math.isclose(result["baseline_entropy"], math.log(5), rel_tol=1e-5)
+    assert result["updated_entropy"] < 1e-3
+    assert math.isclose(
+        result["model_update_delta"],
+        result["updated_entropy"] - result["baseline_entropy"],
+        rel_tol=1e-6,
+    )
