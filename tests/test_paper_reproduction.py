@@ -226,8 +226,11 @@ def test_paper_runner_produces_identity_and_provenance(tmp_path, monkeypatch) ->
     assert "futureonly" in vocabulary
 
     manifest = json.loads(manifest_path.read_text())
-    assert manifest["manifest_version"] == 3
+    assert manifest["manifest_version"] == 4
     assert manifest["git_revision"] == "abc123provenance"
+    assert manifest["corpus"]["classification"] == "methodological_reproduction"
+    assert manifest["corpus"]["contract"]["source_name"] == "user_supplied"
+    assert manifest["corpus"]["provenance_certified_by_software"] is False
     assert manifest["vocabulary"]["scope"] == "whole_requested_corpus"
     assert manifest["vocabulary"]["predictive_entries"] == len(vocabulary) == 30
     assert manifest["architecture"]["predictive_classes"] == 30
