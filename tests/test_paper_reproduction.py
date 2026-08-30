@@ -105,10 +105,7 @@ def test_paper_runner_rejects_duplicate_months(tmp_path) -> None:
     glove.write_text("market 0.1 0.2 0.3 0.4\n")
     with pytest.raises(ValueError, match="unique"):
         run_paper_reproduction(
-            months,
-            str(tmp_path),
-            glove_path=str(glove),
-            show_progress=False,
+            months, str(tmp_path), glove_path=str(glove), show_progress=False
         )
 
 
@@ -119,10 +116,7 @@ def test_paper_runner_rejects_nonconsecutive_months(tmp_path) -> None:
     glove.write_text("market 0.1 0.2 0.3 0.4\n")
     with pytest.raises(ValueError, match="strictly consecutive"):
         run_paper_reproduction(
-            months,
-            str(tmp_path),
-            glove_path=str(glove),
-            show_progress=False,
+            months, str(tmp_path), glove_path=str(glove), show_progress=False
         )
 
 
@@ -130,18 +124,16 @@ def test_paper_runner_rejects_missing_glove_file(tmp_path) -> None:
     missing = tmp_path / "missing-glove.txt"
     with pytest.raises(FileNotFoundError, match="GloVe file not found"):
         run_paper_reproduction(
-            _months(),
-            str(tmp_path),
-            glove_path=str(missing),
-            show_progress=False,
+            _months(), str(tmp_path), glove_path=str(missing), show_progress=False
         )
 
 
 def test_paper_runner_produces_identity_and_provenance(tmp_path, monkeypatch) -> None:
     months = _months()
     for label in months:
+        late_word = " futureonly" if label == months[-1] else ""
         (tmp_path / f"news_{label}.txt").write_text(
-            f"market news changes in {label} today\n"
+            f"market news changes in {label} today{late_word}\n"
             f"investors read another story in {label}\n"
         )
     glove = tmp_path / "glove.txt"
@@ -155,6 +147,7 @@ def test_paper_runner_produces_identity_and_provenance(tmp_path, monkeypatch) ->
         "read 0.1 0.3 0.2 0.0\n"
         "another 0.2 0.0 0.1 0.3\n"
         "story 0.0 0.2 0.3 0.1\n"
+        "futureonly 0.4 0.3 0.2 0.1\n"
     )
     monkeypatch.setenv("GITHUB_SHA", "abc123provenance")
 
@@ -186,13 +179,24 @@ def test_paper_runner_produces_identity_and_provenance(tmp_path, monkeypatch) ->
 
     result_path = output_dir / "paper_entropy_results.csv"
     protocol_path = output_dir / "paper_protocol.json"
+    vocabulary_path = output_dir / "paper_vocabulary.json"
     manifest_path = output_dir / "paper_run_manifest.json"
     assert result_path.exists()
     assert protocol_path.exists()
+    assert vocabulary_path.exists()
     assert manifest_path.exists()
 
+    vocabulary = json.loads(vocabulary_path.read_text())["vocab"]
+    assert "futureonly" in vocabulary
+
     manifest = json.loads(manifest_path.read_text())
+    assert manifest["manifest_version"] == 2
     assert manifest["git_revision"] == "abc123provenance"
+    assert manifest["vocabulary"]["scope"] == "whole_requested_corpus"
+    assert manifest["vocabulary"]["configured_top_words"] == 30
+    assert manifest["vocabulary"]["actual_entries_including_reserved_tokens"] == len(
+        vocabulary
+    )
     assert manifest["inputs"]["glove"]["sha256"] == _sha256(glove)
     assert len(manifest["inputs"]["monthly_news"]) == 19
     first_input = manifest["inputs"]["monthly_news"][0]
@@ -205,4 +209,7 @@ def test_paper_runner_produces_identity_and_provenance(tmp_path, monkeypatch) ->
     )
     assert manifest["outputs"]["paper_protocol.json"]["sha256"] == _sha256(
         protocol_path
+    )
+    assert manifest["outputs"]["paper_vocabulary.json"]["sha256"] == _sha256(
+        vocabulary_path
     )
