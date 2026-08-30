@@ -59,9 +59,7 @@ def test_health_server_exposes_report(tmp_path) -> None:
     """Health server should serve JSON containing node status."""
 
     topology = ClusterTopology(
-        nodes=[
-            NodeConfig(name="trainer", host="127.0.0.1"),
-        ],
+        nodes=[NodeConfig(name="trainer", host="127.0.0.1")],
         shared_storage=tmp_path,
     )
     orchestrator = EnterpriseOrchestrator(topology, health_timeout=10.0)
@@ -196,14 +194,10 @@ def test_schedule_records_plan_failure(monkeypatch) -> None:
     def _boom(self, _job):  # type: ignore[override]
         raise RuntimeError("launch plan failed")
 
-    monkeypatch.setattr(
-        EnterpriseOrchestrator,
-        "build_launch_plan",
-        _boom,
-    )
+    monkeypatch.setattr(EnterpriseOrchestrator, "build_launch_plan", _boom)
 
     before = metrics.REGISTRY.get_sample_value(
-        "entropy_news_orchestrator_plan_failure_total_total",
+        "entropy_news_orchestrator_plan_failure_total",
         labels={"reason": "RuntimeError"},
     ) or 0.0
 
@@ -211,7 +205,7 @@ def test_schedule_records_plan_failure(monkeypatch) -> None:
         orchestrator.schedule(job)
 
     after = metrics.REGISTRY.get_sample_value(
-        "entropy_news_orchestrator_plan_failure_total_total",
+        "entropy_news_orchestrator_plan_failure_total",
         labels={"reason": "RuntimeError"},
     ) or 0.0
 

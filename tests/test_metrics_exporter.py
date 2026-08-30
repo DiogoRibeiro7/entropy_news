@@ -51,7 +51,7 @@ def test_training_metrics_update_throughput() -> None:
     throughput = REGISTRY.get_sample_value(
         "entropy_news_training_throughput_samples_per_second"
     )
-    samples = REGISTRY.get_sample_value("entropy_news_training_samples_total_total")
+    samples = REGISTRY.get_sample_value("entropy_news_training_samples_total")
     gradient_norm = REGISTRY.get_sample_value("entropy_news_training_gradient_norm")
     checkpoint_epoch = REGISTRY.get_sample_value(
         "entropy_news_training_last_checkpoint_epoch"
@@ -96,7 +96,7 @@ def test_orchestrator_metrics_capture_labels() -> None:
     metrics.record_heartbeat_age("trainer-a", 1.5, True)
 
     launches = REGISTRY.get_sample_value(
-        "entropy_news_orchestrator_rank_launch_total_total",
+        "entropy_news_orchestrator_rank_launch_total",
         labels={"node": "trainer-a", "role": "trainer"},
     )
     plan = REGISTRY.get_sample_value("entropy_news_orchestrator_plan_ranks")
