@@ -16,6 +16,11 @@ from pathlib import Path
 import pandas as pd
 import torch
 
+from entropy_news.corpus_contract import (
+    CorpusContract,
+    default_methodological_contract,
+    validate_corpus_contract,
+)
 from entropy_news.data import TextPreprocessor
 from entropy_news.model import Trainer
 from entropy_news.model.paper_lstm import PaperEntropyLSTM
@@ -94,6 +99,26 @@ def _validate_consecutive_months(months: Sequence[str]) -> None:
                 "months must be strictly consecutive; "
                 f"expected {previous + 1} after {previous}, got {current}"
             )
+
+
+def _resolve_corpus_contract(
+    months: Sequence[str],
+    protocol: PaperProtocol,
+    corpus_manifest_path: str | None,
+) -> tuple[CorpusContract, Path | None]:
+    manifest_path = Path(corpus_manifest_path) if corpus_manifest_path else None
+    if manifest_path is None:
+        contract = default_methodological_contract(months, protocol.min_article_words)
+    else:
+        if not manifest_path.is_file():
+            raise FileNotFoundError(f"corpus manifest not found: {manifest_path}")
+        contract = CorpusContract.from_json(manifest_path)
+    validate_corpus_contract(
+        contract,
+        months,
+        protocol_min_article_words=protocol.min_article_words,
+    )
+    return contract, manifest_path
 
 
 def _new_paper_model(
@@ -198,6 +223,8 @@ def _write_provenance_manifest(
     vocabulary_entries: int,
     padding_id: int,
     trainable_parameters: int,
+    corpus_contract: CorpusContract,
+    corpus_manifest_path: Path | None,
 ) -> None:
     base = Path(base_data_dir)
     glove = Path(glove_path)
@@ -218,8 +245,21 @@ def _write_provenance_manifest(
     result_path = out / "paper_entropy_results.csv"
     protocol_path = out / "paper_protocol.json"
     vocabulary_path = out / "paper_vocabulary.json"
+    corpus_record: dict[str, object] = {
+        "classification": corpus_contract.mode,
+        "contract": corpus_contract.as_dict(),
+        "external_manifest_supplied": corpus_manifest_path is not None,
+        "provenance_certified_by_software": False,
+    }
+    if corpus_manifest_path is not None:
+        corpus_record["manifest"] = {
+            "file": corpus_manifest_path.name,
+            "sha256": _sha256(corpus_manifest_path),
+            "bytes": corpus_manifest_path.stat().st_size,
+        }
+
     manifest = {
-        "manifest_version": 3,
+        "manifest_version": 4,
         "git_revision": _git_revision(),
         "execution": {
             "python": sys.version.split()[0],
@@ -230,6 +270,7 @@ def _write_provenance_manifest(
         },
         "protocol": asdict(protocol),
         "months": list(months),
+        "corpus": corpus_record,
         "architecture": {
             "predictive_classes": protocol.vocabulary_size,
             "lexical_classes": protocol.vocabulary_size - 1,
@@ -279,6 +320,7 @@ def run_paper_reproduction(
     protocol: PaperProtocol | None = None,
     learning_rate: float = 0.001,
     glove_path: str | None = None,
+    corpus_manifest_path: str | None = None,
     output_dir: str | None = None,
     show_progress: bool = True,
 ) -> list[PaperMonthResult]:
@@ -289,6 +331,11 @@ def run_paper_reproduction(
             f"at least {required_months} ordered months are required for paper ENT"
         )
     _validate_consecutive_months(months)
+    corpus_contract, resolved_corpus_manifest = _resolve_corpus_contract(
+        months,
+        protocol,
+        corpus_manifest_path,
+    )
     if glove_path is None:
         raise ValueError("paper reproduction requires --glove-path")
     glove = Path(glove_path)
@@ -432,6 +479,8 @@ def run_paper_reproduction(
             len(preprocessor.vocab),
             padding_id,
             model.trainable_parameter_count(),
+            corpus_contract,
+            resolved_corpus_manifest,
         )
     return results
 
@@ -444,6 +493,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--base-data-dir", default="data/")
     parser.add_argument("--output-dir", default="output/paper_reproduction")
     parser.add_argument("--glove-path", required=True)
+    parser.add_argument(
+        "--corpus-manifest",
+        help=(
+            "Optional corpus contract JSON. Without it the run is explicitly "
+            "classified as methodological_reproduction."
+        ),
+    )
     parser.add_argument("--learning-rate", type=float, default=0.001)
     parser.add_argument("--no-progress", action="store_false", dest="progress")
     parser.set_defaults(progress=True)
@@ -457,6 +513,7 @@ def main(argv: list[str] | None = None) -> None:
         args.base_data_dir,
         learning_rate=args.learning_rate,
         glove_path=args.glove_path,
+        corpus_manifest_path=args.corpus_manifest,
         output_dir=args.output_dir,
         show_progress=args.progress,
     )
