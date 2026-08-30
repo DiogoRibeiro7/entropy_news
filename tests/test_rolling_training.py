@@ -1,5 +1,4 @@
 import pytest
-import pytest
 
 torch = pytest.importorskip("torch")
 
@@ -16,7 +15,9 @@ def test_train_and_update(tmp_path):
     (tmp_path / "news_2023-01.txt").write_text("a b c\nb c d\n")
     (tmp_path / "news_2023-02.txt").write_text("c d e\n")
 
-    train_ds, pre = prepare_training_set(["2023-01"], str(tmp_path), seq_len=3, vocab_size=10)
+    train_ds, pre = prepare_training_set(
+        ["2023-01"], str(tmp_path), seq_len=3, vocab_size=10
+    )
     config = ModelConfig(
         architecture="lstm",
         vocab_size=len(pre.vocab),
@@ -47,5 +48,8 @@ def test_train_and_update(tmp_path):
         learning_rate=0.01,
     )
 
-    assert set(result.keys()) == {"ENT", "ENT_news", "ENT_model"}
-
+    assert set(result) == {
+        "baseline_entropy",
+        "updated_entropy",
+        "model_update_delta",
+    }
