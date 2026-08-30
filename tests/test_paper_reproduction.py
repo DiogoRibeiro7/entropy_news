@@ -7,11 +7,13 @@ torch = pytest.importorskip("torch")
 from entropy_news.data import TextPreprocessor
 from entropy_news.model import EntropyLSTM
 from entropy_news.paper_reproduction import (
+    PaperProtocol,
     chunk_articles_for_training,
     decompose_entropy,
     exponentially_sample_history,
     monthly_article_entropy,
 )
+from entropy_news.paper_rolling import run_paper_reproduction
 
 
 def test_equation_15_decomposition_identity() -> None:
@@ -43,8 +45,7 @@ def test_exponential_history_sampling_is_causal_and_deterministic() -> None:
         data, months, base_seed=7, evaluation_month="2023-07"
     )
     assert first == second
-    expected = 16 + 8 + 4 + 2 + 1 + 0
-    assert len(first) == expected
+    assert len(first) == 16 + 8 + 4 + 2 + 1
     assert all(item.startswith(tuple(months)) for item in first)
 
 
@@ -65,3 +66,46 @@ def test_monthly_entropy_is_equal_weighted_across_articles() -> None:
         device=torch.device("cpu"),
     )
     assert math.isclose(value, math.log(len(pre.vocab)), rel_tol=1e-5)
+
+
+def test_paper_runner_produces_year_over_year_identity(tmp_path) -> None:
+    months = []
+    year, month = 2022, 1
+    for _ in range(19):
+        label = f"{year:04d}-{month:02d}"
+        months.append(label)
+        (tmp_path / f"news_{label}.txt").write_text(
+            f"market news changes in {label} today\n"
+            f"investors read another story in {label}\n"
+        )
+        month += 1
+        if month == 13:
+            month = 1
+            year += 1
+
+    protocol = PaperProtocol(
+        sequence_length=3,
+        batch_size=2,
+        epochs=1,
+        embedding_dim=4,
+        hidden_dim=2,
+        vocabulary_size=30,
+        min_article_words=2,
+        sampling_seed=11,
+    )
+    output_dir = tmp_path / "out"
+    results = run_paper_reproduction(
+        months,
+        str(tmp_path),
+        protocol=protocol,
+        learning_rate=0.01,
+        output_dir=str(output_dir),
+        show_progress=False,
+    )
+
+    assert len(results) == 1
+    result = results[0]
+    assert result.month == months[-1]
+    assert math.isclose(result.ENT, result.ENT_NEWS + result.ENT_MODEL, rel_tol=1e-7)
+    assert (output_dir / "paper_entropy_results.csv").exists()
+    assert (output_dir / "paper_protocol.json").exists()
