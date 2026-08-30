@@ -10,6 +10,7 @@ from entropy_news.data import TextPreprocessor
 from entropy_news.model import EntropyLSTM
 from entropy_news.paper_reproduction import (
     PaperProtocol,
+    _score_article,
     chunk_articles_for_training,
     decompose_entropy,
     exponentially_sample_history,
@@ -35,6 +36,34 @@ def _months(count: int = 19) -> list[str]:
     return months
 
 
+class _EmbeddingStub:
+    embedding_dim = 1
+    weight = torch.zeros(1)
+
+
+class _FirstTokenTestModel:
+    """Minimal scorer stub with distinct first and later token probabilities."""
+
+    embedding = _EmbeddingStub()
+
+    def eval(self):
+        return self
+
+    def lstm(self, x, state):
+        output = torch.zeros((1, 1, 1), dtype=torch.float32)
+        next_state = (torch.zeros((1, 1, 1)), torch.zeros((1, 1, 1)))
+        return output, next_state
+
+    def fc(self, output):
+        # First-token target 1 has probability e^2 / (2 + e^2).
+        return torch.tensor([[[0.0, 2.0, 0.0]]], dtype=torch.float32)
+
+    def forward_with_state(self, x, state):
+        # All later-token predictions are uniform over the three classes.
+        logits = torch.zeros((1, x.size(1), 3), dtype=torch.float32)
+        return logits, state
+
+
 def test_equation_15_decomposition_identity() -> None:
     result = decompose_entropy(
         current_entropy=4.0,
@@ -58,6 +87,21 @@ def test_training_chunks_cover_complete_article_without_losing_boundaries() -> N
     assert chunks == [[1, 2, 3, 4], [4, 5, 6, 7], [7, 8, 9]]
     targets = [token for chunk in chunks for token in chunk[1:]]
     assert targets == list(range(2, 10))
+
+
+def test_article_entropy_includes_first_word_probability() -> None:
+    model = _FirstTokenTestModel()
+    score = _score_article(
+        model,
+        [1, 2, 2],
+        sequence_length=1,
+        device=torch.device("cpu"),
+    )
+    first_nll = -torch.log_softmax(torch.tensor([0.0, 2.0, 0.0]), dim=0)[1].item()
+    later_nll = math.log(3.0)
+    expected = (first_nll + 2.0 * later_nll) / 3.0
+    assert math.isclose(score, expected, rel_tol=1e-7)
+    assert not math.isclose(score, later_nll, rel_tol=1e-7)
 
 
 def test_exponential_history_sampling_is_causal_and_deterministic() -> None:

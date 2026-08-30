@@ -153,24 +153,36 @@ def _score_article(
     sequence_length: int,
     device: torch.device,
 ) -> float:
-    """Return average next-token negative log probability for one article.
+    """Return the paper's mean negative log probability for one article.
 
-    LSTM state is carried across chunks within one article and reset between
-    articles.
+    The paper averages over all ``N`` words. The first word is scored from a
+    zero input vector and zero recurrent state; subsequent words are scored from
+    preceding article words. LSTM state is carried across chunks within one
+    article and reset between articles.
     """
 
     tokens = list(token_ids)
-    if len(tokens) < 2:
+    if not tokens:
         return float("nan")
 
-    inputs = tokens[:-1]
-    targets = tokens[1:]
-    state: tuple[torch.Tensor, torch.Tensor] | None = None
     total_log_prob = 0.0
     total_tokens = 0
 
     model.eval()
     with torch.no_grad():
+        zero_input = torch.zeros(
+            (1, 1, model.embedding.embedding_dim),
+            dtype=model.embedding.weight.dtype,
+            device=device,
+        )
+        first_output, state = model.lstm(zero_input, None)
+        first_logits = model.fc(first_output)
+        first_log_probs = torch.log_softmax(first_logits, dim=-1)
+        total_log_prob += first_log_probs[0, 0, tokens[0]].item()
+        total_tokens = 1
+
+        inputs = tokens[:-1]
+        targets = tokens[1:]
         for start in range(0, len(inputs), sequence_length):
             x = torch.tensor(
                 [inputs[start : start + sequence_length]],
