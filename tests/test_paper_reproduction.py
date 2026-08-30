@@ -11,6 +11,7 @@ from entropy_news.paper_reproduction import (
     chunk_articles_for_training,
     decompose_entropy,
     exponentially_sample_history,
+    filter_articles,
     monthly_article_entropy,
 )
 from entropy_news.paper_rolling import run_paper_reproduction
@@ -26,6 +27,12 @@ def test_equation_15_decomposition_identity() -> None:
     assert math.isclose(result.ENT_NEWS, 0.3)
     assert math.isclose(result.ENT_MODEL, 0.2)
     assert math.isclose(result.ENT, result.ENT_NEWS + result.ENT_MODEL)
+
+
+def test_article_filter_uses_cleaned_token_count() -> None:
+    pre = TextPreprocessor(vocab_size=20)
+    texts = ["One, two!", "One, two, three.", "four five six seven"]
+    assert filter_articles(texts, pre, min_article_words=3) == texts[1:]
 
 
 def test_training_chunks_cover_complete_article_without_losing_boundaries() -> None:
