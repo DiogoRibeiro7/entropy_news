@@ -1,19 +1,15 @@
 import pytest
+
 pd = pytest.importorskip("pandas")
 
 from entropy_news.rolling_train_forecast import main as rolling_main
 
 
 def test_rolling_main_runs(tmp_path, monkeypatch) -> None:
-    """Verify the rolling CLI executes with patched helpers."""
-
-    torch = pytest.importorskip("torch")
-
-    # Create dummy monthly files
+    pytest.importorskip("torch")
     (tmp_path / "news_2023-01.txt").write_text("a b\n")
     (tmp_path / "news_2023-02.txt").write_text("b c\n")
 
-    # Dummy implementations to skip heavy work
     class DummyPreprocessor:
         vocab = {"<PAD>": 0}
 
@@ -29,7 +25,11 @@ def test_rolling_main_runs(tmp_path, monkeypatch) -> None:
         return DummyModel()
 
     def fake_update(*args, **kwargs):
-        return {"ENT": 0.0, "ENT_news": 0.0, "ENT_model": 0.0}
+        return {
+            "baseline_entropy": 1.0,
+            "updated_entropy": 0.9,
+            "model_update_delta": -0.1,
+        }
 
     monkeypatch.setattr(
         "entropy_news.rolling_train_forecast.prepare_training_set", fake_prepare
@@ -52,7 +52,10 @@ def test_rolling_main_runs(tmp_path, monkeypatch) -> None:
         "1",
     ])
 
-    out_csv = tmp_path / "rolling_forecast_results.csv"
-    assert out_csv.exists()
-    df = pd.read_csv(out_csv)
-    assert {"ENT", "ENT_news", "ENT_model", "month"}.issubset(df.columns)
+    df = pd.read_csv(tmp_path / "rolling_forecast_results.csv")
+    assert {
+        "baseline_entropy",
+        "updated_entropy",
+        "model_update_delta",
+        "month",
+    }.issubset(df.columns)
