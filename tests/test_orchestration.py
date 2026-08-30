@@ -21,8 +21,6 @@ from entropy_news.utils import metrics
 
 
 def test_cluster_validation_requires_trainer() -> None:
-    """Validation should fail when no trainer nodes exist."""
-
     topology = ClusterTopology(
         nodes=[NodeConfig(name="monitor", host="10.0.0.1", role="monitor")],
     )
@@ -31,8 +29,6 @@ def test_cluster_validation_requires_trainer() -> None:
 
 
 def test_build_launch_plan_assigns_ranks_and_env(tmp_path) -> None:
-    """Launch plan should cover all ranks with consistent environment settings."""
-
     topology = ClusterTopology(
         nodes=[
             NodeConfig(name="trainer-a", host="10.0.0.1", processes=2),
@@ -45,7 +41,6 @@ def test_build_launch_plan_assigns_ranks_and_env(tmp_path) -> None:
     orchestrator = EnterpriseOrchestrator(topology)
     job = TrainingJob(name="baseline", entrypoint="python", args=("-m", "train"))
     plan = orchestrator.build_launch_plan(job)
-
     assert len(plan) == 3
     assert {spec.rank for spec in plan} == {0, 1, 2}
     assert all(spec.env["WORLD_SIZE"] == "3" for spec in plan)
@@ -56,12 +51,8 @@ def test_build_launch_plan_assigns_ranks_and_env(tmp_path) -> None:
 
 
 def test_health_server_exposes_report(tmp_path) -> None:
-    """Health server should serve JSON containing node status."""
-
     topology = ClusterTopology(
-        nodes=[
-            NodeConfig(name="trainer", host="127.0.0.1"),
-        ],
+        nodes=[NodeConfig(name="trainer", host="127.0.0.1")],
         shared_storage=tmp_path,
     )
     orchestrator = EnterpriseOrchestrator(topology, health_timeout=10.0)
@@ -79,8 +70,6 @@ def test_health_server_exposes_report(tmp_path) -> None:
 
 
 def test_schedule_updates_health_and_invokes_launcher() -> None:
-    """Scheduling should invoke the launcher and update health metadata."""
-
     topology = ClusterTopology(
         nodes=[
             NodeConfig(name="trainer-a", host="192.168.0.10"),
@@ -95,7 +84,6 @@ def test_schedule_updates_health_and_invokes_launcher() -> None:
         launches.append((spec.node.name, spec.rank))
 
     plan = orchestrator.schedule(job, launcher=_launcher, dry_run=False)
-
     assert launches == [(spec.node.name, spec.rank) for spec in plan]
     report = orchestrator.health_report()
     for node in topology.trainers():
@@ -103,8 +91,6 @@ def test_schedule_updates_health_and_invokes_launcher() -> None:
 
 
 def test_default_launcher_executes_commands(monkeypatch) -> None:
-    """The built-in launcher should call ``subprocess.Popen`` with enriched env."""
-
     topology = ClusterTopology(nodes=[NodeConfig(name="trainer", host="127.0.0.1")])
     orchestrator = EnterpriseOrchestrator(topology)
     job = TrainingJob(name="demo", entrypoint="python", args=("-c", "print('ok')"))
@@ -125,12 +111,10 @@ def test_default_launcher_executes_commands(monkeypatch) -> None:
             launched.append({"terminated": True})
 
     monkeypatch.setattr("entropy_news.model.orchestration.subprocess.Popen", _Proc)
-
     plan = orchestrator.schedule(job, dry_run=False)
-    assert plan, "launch plan should not be empty"
+    assert plan
     orchestrator.wait_for_processes()
-
-    assert launched, "launcher should have executed a subprocess"
+    assert launched
     record = launched[0]
     assert record["command"] == ["python", "-c", "print('ok')"]
     env = record["env"]
@@ -140,43 +124,32 @@ def test_default_launcher_executes_commands(monkeypatch) -> None:
 
 
 def test_cli_launch_triggers_execution(monkeypatch, capsys) -> None:
-    """Passing ``--launch`` should disable dry runs and wait for processes."""
-
     captured: dict[str, object] = {}
 
     def _load_topology(_path):
         return ClusterTopology(nodes=[NodeConfig(name="trainer", host="127.0.0.1")])
 
-    def _schedule(self, job, launcher=None, *, dry_run=True):  # type: ignore[override]
+    def _schedule(self, job, launcher=None, *, dry_run=True):
         captured["dry_run"] = dry_run
         captured["launcher_none"] = launcher is None
-        return [
-            LaunchSpec(
-                node=NodeConfig(name="trainer", host="127.0.0.1"),
-                rank=0,
-                local_rank=0,
-                world_size=1,
-                command=list(job.command()),
-                env={"RANK": "0"},
-            )
-        ]
+        return [LaunchSpec(
+            node=NodeConfig(name="trainer", host="127.0.0.1"),
+            rank=0,
+            local_rank=0,
+            world_size=1,
+            command=list(job.command()),
+            env={"RANK": "0"},
+        )]
 
-    def _wait(self, *, check=True):  # type: ignore[override]
+    def _wait(self, *, check=True):
         captured["wait_called"] = True
         captured["check"] = check
 
     monkeypatch.setattr("entropy_news.model.orchestration._load_topology", _load_topology)
-    monkeypatch.setattr(
-        "entropy_news.model.orchestration.EnterpriseOrchestrator.schedule", _schedule
-    )
-    monkeypatch.setattr(
-        "entropy_news.model.orchestration.EnterpriseOrchestrator.wait_for_processes",
-        _wait,
-    )
+    monkeypatch.setattr(EnterpriseOrchestrator, "schedule", _schedule)
+    monkeypatch.setattr(EnterpriseOrchestrator, "wait_for_processes", _wait)
     monkeypatch.setattr(sys, "argv", ["entropy-news-orchestrate", "--launch"])
-
     main()
-
     output = capsys.readouterr().out
     assert "RANK" in output
     assert captured.get("dry_run") is False
@@ -185,34 +158,22 @@ def test_cli_launch_triggers_execution(monkeypatch, capsys) -> None:
 
 
 def test_schedule_records_plan_failure(monkeypatch) -> None:
-    """Plan generation errors should increment the failure counter."""
-
-    topology = ClusterTopology(
-        nodes=[NodeConfig(name="trainer", host="127.0.0.1")]
-    )
+    topology = ClusterTopology(nodes=[NodeConfig(name="trainer", host="127.0.0.1")])
     orchestrator = EnterpriseOrchestrator(topology)
     job = TrainingJob(name="boom", entrypoint="python")
 
-    def _boom(self, _job):  # type: ignore[override]
+    def _boom(self, _job):
         raise RuntimeError("launch plan failed")
 
-    monkeypatch.setattr(
-        EnterpriseOrchestrator,
-        "build_launch_plan",
-        _boom,
-    )
-
+    monkeypatch.setattr(EnterpriseOrchestrator, "build_launch_plan", _boom)
     before = metrics.REGISTRY.get_sample_value(
-        "entropy_news_orchestrator_plan_failure_total_total",
+        "entropy_news_orchestrator_plan_failure_total",
         labels={"reason": "RuntimeError"},
     ) or 0.0
-
     with pytest.raises(RuntimeError):
         orchestrator.schedule(job)
-
     after = metrics.REGISTRY.get_sample_value(
-        "entropy_news_orchestrator_plan_failure_total_total",
+        "entropy_news_orchestrator_plan_failure_total",
         labels={"reason": "RuntimeError"},
     ) or 0.0
-
     assert after >= before + 1.0
