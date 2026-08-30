@@ -69,7 +69,12 @@ def test_training_and_forecasting(tmp_path):
 
     assert out_csv.exists()
     df = pd.read_csv(out_csv)
-    assert {"ENT", "ENT_news", "ENT_model"}.issubset(df.columns)
+    assert {
+        "baseline_entropy",
+        "updated_entropy",
+        "model_update_delta",
+    }.issubset(df.columns)
+    assert not {"ENT", "ENT_NEWS", "ENT_MODEL"}.intersection(df.columns)
 
 
 def test_full_evaluation_flow(tmp_path) -> None:
@@ -141,54 +146,23 @@ def test_resume_training(tmp_path) -> None:
     model_out = tmp_path / "model.pth"
     vocab_out = tmp_path / "vocab.json"
 
-    # First run creates the checkpoint at epoch 1
     train_main([
-        "--train-data",
-        str(train_file),
-        "--glove-path",
-        str(glove),
-        "--embed-dim",
-        "2",
-        "--hidden-dim",
-        "2",
-        "--epochs",
-        "1",
-        "--batch-size",
-        "1",
-        "--model-out",
-        str(model_out),
-        "--vocab-out",
-        str(vocab_out),
-        "--checkpoint",
-        str(checkpoint),
+        "--train-data", str(train_file), "--glove-path", str(glove),
+        "--embed-dim", "2", "--hidden-dim", "2", "--epochs", "1",
+        "--batch-size", "1", "--model-out", str(model_out),
+        "--vocab-out", str(vocab_out), "--checkpoint", str(checkpoint),
     ])
 
     assert checkpoint.exists()
     ckpt = torch.load(checkpoint)
     assert ckpt["epoch"] == 1
 
-    # Resume training to complete second epoch
     train_main([
-        "--train-data",
-        str(train_file),
-        "--glove-path",
-        str(glove),
-        "--embed-dim",
-        "2",
-        "--hidden-dim",
-        "2",
-        "--epochs",
-        "2",
-        "--batch-size",
-        "1",
-        "--model-out",
-        str(model_out),
-        "--vocab-out",
-        str(vocab_out),
-        "--checkpoint",
-        str(checkpoint),
-        "--resume-from",
-        str(checkpoint),
+        "--train-data", str(train_file), "--glove-path", str(glove),
+        "--embed-dim", "2", "--hidden-dim", "2", "--epochs", "2",
+        "--batch-size", "1", "--model-out", str(model_out),
+        "--vocab-out", str(vocab_out), "--checkpoint", str(checkpoint),
+        "--resume-from", str(checkpoint),
     ])
 
     ckpt = torch.load(checkpoint)
@@ -209,22 +183,10 @@ def test_training_creates_output_dirs(tmp_path) -> None:
     vocab_out = tmp_path / "nested" / "vocab" / "vocab.json"
 
     train_main([
-        "--train-data",
-        str(train_file),
-        "--glove-path",
-        str(glove),
-        "--embed-dim",
-        "2",
-        "--hidden-dim",
-        "2",
-        "--epochs",
-        "1",
-        "--batch-size",
-        "1",
-        "--model-out",
-        str(model_out),
-        "--vocab-out",
-        str(vocab_out),
+        "--train-data", str(train_file), "--glove-path", str(glove),
+        "--embed-dim", "2", "--hidden-dim", "2", "--epochs", "1",
+        "--batch-size", "1", "--model-out", str(model_out),
+        "--vocab-out", str(vocab_out),
     ])
 
     assert model_out.exists()
