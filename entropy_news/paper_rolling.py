@@ -176,6 +176,7 @@ def _write_provenance_manifest(
     learning_rate: float,
     raw_counts: dict[str, int],
     filtered_counts: dict[str, int],
+    vocabulary_entries: int,
 ) -> None:
     base = Path(base_data_dir)
     glove = Path(glove_path)
@@ -195,8 +196,9 @@ def _write_provenance_manifest(
 
     result_path = out / "paper_entropy_results.csv"
     protocol_path = out / "paper_protocol.json"
+    vocabulary_path = out / "paper_vocabulary.json"
     manifest = {
-        "manifest_version": 1,
+        "manifest_version": 2,
         "git_revision": _git_revision(),
         "execution": {
             "python": sys.version.split()[0],
@@ -207,6 +209,11 @@ def _write_provenance_manifest(
         },
         "protocol": asdict(protocol),
         "months": list(months),
+        "vocabulary": {
+            "scope": "whole_requested_corpus",
+            "configured_top_words": protocol.vocabulary_size,
+            "actual_entries_including_reserved_tokens": vocabulary_entries,
+        },
         "inputs": {
             "monthly_news": monthly_inputs,
             "glove": {
@@ -223,6 +230,10 @@ def _write_provenance_manifest(
             "paper_protocol.json": {
                 "sha256": _sha256(protocol_path),
                 "bytes": protocol_path.stat().st_size,
+            },
+            "paper_vocabulary.json": {
+                "sha256": _sha256(vocabulary_path),
+                "bytes": vocabulary_path.stat().st_size,
             },
         },
     }
@@ -242,12 +253,14 @@ def run_paper_reproduction(
     output_dir: str | None = None,
     show_progress: bool = True,
 ) -> list[PaperMonthResult]:
-    """Run the causal rolling design used to construct the paper's ENT series.
+    """Run the rolling design used to construct the paper's ENT series.
 
     The model used to score month ``t`` is fit only with information through
-    ``t-1``. The paper path requires GloVe embeddings, strictly consecutive
-    monthly inputs, and emits a byte-level provenance manifest when outputs are
-    written.
+    ``t-1``. Following the paper literally, the vocabulary is selected from the
+    whole requested corpus before rolling model training. Thus vocabulary
+    membership can use later corpus information even though model weights do
+    not. The paper path also requires GloVe embeddings, strictly consecutive
+    monthly inputs, and emits byte-level provenance when outputs are written.
     """
 
     protocol = protocol or PaperProtocol()
@@ -283,11 +296,15 @@ def run_paper_reproduction(
             f"requested month; empty after filtering: {listed}"
         )
 
+    whole_corpus_texts = [
+        text for month in months for text in month_articles[month]
+    ]
+    preprocessor.build_vocab(whole_corpus_texts)
+
     initial_months = list(months[: protocol.history_months])
     initial_texts = [
         text for month in initial_months for text in month_articles[month]
     ]
-    preprocessor.build_vocab(initial_texts)
     preprocessor.load_glove_embeddings(
         glove_path,
         embedding_dim=protocol.embedding_dim,
@@ -388,6 +405,7 @@ def run_paper_reproduction(
             json.dumps(asdict(protocol), indent=2, sort_keys=True),
             encoding="utf-8",
         )
+        preprocessor.save_vocab(str(out / "paper_vocabulary.json"))
         _write_provenance_manifest(
             out,
             months,
@@ -397,13 +415,14 @@ def run_paper_reproduction(
             learning_rate,
             {month: len(raw_month_articles[month]) for month in months},
             {month: len(month_articles[month]) for month in months},
+            len(preprocessor.vocab),
         )
     return results
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the paper-faithful New News is Bad News entropy protocol"
+        description="Run the New News is Bad News entropy protocol"
     )
     parser.add_argument("months", nargs="+", help="Consecutive YYYY-MM months")
     parser.add_argument("--base-data-dir", default="data/")
