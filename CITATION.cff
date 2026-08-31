@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite Entropy News and the source working paper listed below."
-title: "Entropy News: Reproducible Financial-News Entropy Estimation and Decomposition"
+title: "Entropy News: Reproducible Estimation and Decomposition of Financial-News Entropy"
 type: software
 version: "0.2.2"
 date-released: 2026-08-31
