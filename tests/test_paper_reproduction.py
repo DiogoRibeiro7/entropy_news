@@ -44,23 +44,33 @@ class _EmbeddingStub:
     weight = torch.zeros(1)
 
 
+class _OutputHeadStub:
+    in_features = 1
+    weight = torch.zeros((3, 1))
+
+    def __call__(self, hidden):
+        if torch.any(hidden != 0):
+            raise AssertionError("first-word marginal must use h_0 = 0")
+        return torch.tensor([[[0.0, 2.0, 0.0]]], dtype=torch.float32)
+
+
 class _FirstTokenTestModel:
     embedding = _EmbeddingStub()
+    fc = _OutputHeadStub()
 
     def eval(self):
         return self
 
     def lstm(self, x, state):
-        output = torch.zeros((1, 1, 1), dtype=torch.float32)
-        next_state = (torch.zeros((1, 1, 1)), torch.zeros((1, 1, 1)))
-        return output, next_state
-
-    def fc(self, output):
-        return torch.tensor([[[0.0, 2.0, 0.0]]], dtype=torch.float32)
+        raise AssertionError("no recurrent transition is allowed before w_1")
 
     def forward_with_state(self, x, state):
         logits = torch.zeros((1, x.size(1), 3), dtype=torch.float32)
-        return logits, state
+        next_state = (
+            torch.zeros((1, 1, 1), dtype=torch.float32),
+            torch.zeros((1, 1, 1), dtype=torch.float32),
+        )
+        return logits, next_state
 
 
 def test_equation_15_decomposition_identity() -> None:
@@ -107,7 +117,7 @@ def test_paper_dataset_keeps_unk_predictive_and_padding_nonpredictive() -> None:
     assert 0 not in y.tolist() or 0 != PAPER_TARGET_IGNORE_INDEX
 
 
-def test_article_entropy_includes_first_word_probability() -> None:
+def test_article_entropy_uses_unconditional_first_word_probability() -> None:
     model = _FirstTokenTestModel()
     score = _score_article(
         model,
