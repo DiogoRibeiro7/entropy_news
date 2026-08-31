@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
+import hashlib
 
 import numpy as np
 import torch
@@ -13,6 +14,8 @@ from entropy_news.data import TextPreprocessor
 from entropy_news.paper_reproduction import chunk_articles_for_training, filter_articles
 
 PAPER_TARGET_IGNORE_INDEX = -100
+PAPER_UNK_EMBEDDING_CONVENTION = "seeded_random_normal_0_1"
+PAPER_UNK_EMBEDDING_PAPER_SPECIFIED = False
 
 
 def build_paper_vocabulary(
@@ -49,7 +52,16 @@ def load_paper_glove_embeddings(
     padding_id: int,
     show_progress: bool,
 ) -> None:
-    """Load frozen predictive embeddings and append a zero-only padding row."""
+    """Load frozen paper embeddings with explicit UNK and padding conventions.
+
+    The paper specifies 100-dimensional GloVe vectors and an ``UNK`` token but
+    does not specify the vector assigned to ``UNK``. The strict reproduction
+    path therefore makes its implementation inference explicit: ``UNK`` uses
+    a deterministic ``N(0, 1)`` vector generated from the protocol seed. This
+    matches the historical generic-loader behaviour for standard GloVe files
+    while preventing an incidental ``<UNK>`` row in a custom file from silently
+    changing the convention. Padding remains a separate all-zero input row.
+    """
     if padding_id != len(preprocessor.vocab):
         raise ValueError("paper padding ID must follow the predictive vocabulary")
     preprocessor.load_glove_embeddings(
@@ -61,6 +73,18 @@ def load_paper_glove_embeddings(
     matrix = preprocessor.embedding_matrix
     if matrix is None:
         raise RuntimeError("GloVe loader did not create an embedding matrix")
+
+    unk_id = preprocessor.vocab["<UNK>"]
+    rng = np.random.default_rng(seed)
+    unk_vector = rng.normal(0, 1, embedding_dim).astype(matrix.dtype)
+    matrix[unk_id] = unk_vector
+    preprocessor.vocab_metadata["paper_unk_embedding"] = {
+        "convention": PAPER_UNK_EMBEDDING_CONVENTION,
+        "paper_specified": PAPER_UNK_EMBEDDING_PAPER_SPECIFIED,
+        "seed": seed,
+        "sha256": hashlib.sha256(unk_vector.tobytes()).hexdigest(),
+    }
+
     zero_row = np.zeros((1, embedding_dim), dtype=matrix.dtype)
     preprocessor.embedding_matrix = np.concatenate([matrix, zero_row], axis=0)
 
