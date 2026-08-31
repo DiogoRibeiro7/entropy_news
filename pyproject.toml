@@ -12,7 +12,7 @@ python = "^3.10"
 pandas = "^2.0"
 tqdm = "^4.66"
 numpy = "^1.25"
-prometheus-client = "^0.17"
+prometheus-client = ">=0.17,<0.27"
 
 [tool.poetry.group.torch.dependencies]
 torch = "^2.0"
