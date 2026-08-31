@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.2.1 - 2026-08-31
+- Added authoritative `.zenodo.json` metadata for Zenodo GitHub archiving.
+- Aligned Zenodo, citation, and package metadata at version 0.2.1.
+- Added the source working paper as an `isDerivedFrom` related identifier without predeclaring a Zenodo DOI.
+- No estimator, model, data, dependency, provenance, or scientific-result logic changed.
+
 ## 0.2.0 - 2026-08-31
 - Added the audited strict paper-reproduction path for `ENT`, `ENT_NEWS`, and `ENT_MODEL`, including the 12-month lagged-model decomposition.
 - Matched the reported LSTM architecture with 100-dimensional inputs, 16 hidden units, one bias vector per gate block, and 177,488 trainable parameters for the default model.
