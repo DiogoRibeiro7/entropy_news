@@ -25,7 +25,7 @@ hypothesis = "^6.91"
 [tool.poetry.group.docs.dependencies]
 sphinx = "^7.0"
 myst-parser = "^2.0"
-sphinx-rtd-theme = "^2.0"
+sphinx-rtd-theme = ">=2,<4"
 
 [tool.poetry.scripts]
 entropy-news-train = "entropy_news.main:main"
