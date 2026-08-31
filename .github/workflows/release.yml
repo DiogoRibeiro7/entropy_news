@@ -26,6 +26,8 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    env:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -132,9 +134,7 @@ jobs:
           echo "pypi_exists=$PYPI_EXISTS" >> "$GITHUB_OUTPUT"
           echo "github_release_exists=$GITHUB_RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
       - name: Build package preflight
-        if: >-
-          steps.candidate.outputs.active == 'true' &&
-          steps.destinations.outputs.pypi_exists == 'false'
+        if: steps.candidate.outputs.active == 'true'
         run: poetry build
       - name: Create and push annotated tag
         if: >-
@@ -146,13 +146,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Entropy News $TAG"
           git push origin "$TAG"
-      - name: Publish to PyPI
-        if: >-
-          steps.candidate.outputs.active == 'true' &&
-          steps.destinations.outputs.pypi_exists == 'false'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_TOKEN }}
       - name: Prepare GitHub release notes
         if: >-
           steps.candidate.outputs.active == 'true' &&
@@ -180,9 +173,23 @@ jobs:
             --verify-tag \
             --title "Entropy News ${{ steps.candidate.outputs.tag }}" \
             --notes-file release-notes.md
-      - name: Report existing release
+      - name: Publish to PyPI
         if: >-
           steps.candidate.outputs.active == 'true' &&
-          steps.destinations.outputs.pypi_exists == 'true' &&
-          steps.destinations.outputs.github_release_exists == 'true'
-        run: echo "Version ${{ steps.candidate.outputs.version }} is already fully released; nothing to do."
+          steps.destinations.outputs.pypi_exists == 'false' &&
+          env.PYPI_TOKEN != ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ env.PYPI_TOKEN }}
+      - name: Report PyPI not configured
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.destinations.outputs.pypi_exists == 'false' &&
+          env.PYPI_TOKEN == ''
+        run: echo "PYPI_TOKEN is not configured; GitHub Release is complete and PyPI publication was skipped."
+      - name: Report complete release
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.destinations.outputs.github_release_exists == 'true' &&
+          (steps.destinations.outputs.pypi_exists == 'true' || env.PYPI_TOKEN == '')
+        run: echo "Version ${{ steps.candidate.outputs.version }} requires no further automatic release action."
