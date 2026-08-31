@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "entropy-news"
-version = "0.2.1"
-description = "Financial-news entropy with a paper-faithful New News is Bad News reproduction path and research extensions."
+version = "0.2.2"
+description = "Reproducible financial-news entropy estimation and decomposition with a paper-faithful rolling language-model path."
 authors = ["Diogo Ribeiro (DiogoRibeiro7) <dfr@esmad.ipp.pt>"]
 license = "MIT"
 readme = "README.md"
