@@ -1,8 +1,9 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite Entropy News and the source paper listed below."
+message: "If you use this software, please cite Entropy News and the source working paper listed below."
 title: "Entropy News"
 type: software
 version: "0.1.0"
+date-released: 2026-08-31
 license: MIT
 repository-code: https://github.com/DiogoRibeiro7/entropy_news
 url: https://github.com/DiogoRibeiro7/entropy_news
@@ -13,7 +14,7 @@ authors:
     affiliation: Faculty of Media Arts and Design, Technical University of Porto
     email: dfr@esmad.ipp.pt
 references:
-  - type: article
+  - type: unpublished
     title: "New News is Bad News: Information, Expectations, and Financial Markets"
     authors:
       - family-names: Glasserman
