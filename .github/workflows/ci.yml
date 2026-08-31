@@ -27,10 +27,12 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install Poetry
         run: pip install poetry==1.7.1
+      - name: Verify lockfile
+        run: poetry check --lock
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
-          poetry install --with torch --with dev
+          poetry install --with torch --with dev --no-interaction
       - name: Run core test suite
         run: |
           set -o pipefail
@@ -115,10 +117,12 @@ jobs:
           python-version: '3.11'
       - name: Install Poetry
         run: pip install poetry==1.7.1
+      - name: Verify lockfile
+        run: poetry check --lock
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
-          poetry install --with torch --with dev
+          poetry install --with torch --with dev --no-interaction
       - name: Run integration tests
         run: |
           set -o pipefail
@@ -139,10 +143,12 @@ jobs:
           python-version: '3.11'
       - name: Install Poetry
         run: pip install poetry==1.7.1
+      - name: Verify lockfile
+        run: poetry check --lock
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
-          poetry install --with torch --with dev
+          poetry install --with torch --with dev --no-interaction
       - name: Run performance checks
         run: |
           set -o pipefail
