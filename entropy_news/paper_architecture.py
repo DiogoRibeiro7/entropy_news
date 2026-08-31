@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
+import hashlib
 
 import numpy as np
 import torch
@@ -54,9 +55,9 @@ def load_paper_glove_embeddings(
     """Load frozen paper embeddings with explicit UNK and padding conventions.
 
     The paper specifies 100-dimensional GloVe vectors and an ``UNK`` token but
-    does not specify the vector assigned to ``UNK``.  The strict reproduction
+    does not specify the vector assigned to ``UNK``. The strict reproduction
     path therefore makes its implementation inference explicit: ``UNK`` uses
-    a deterministic ``N(0, 1)`` vector generated from the protocol seed.  This
+    a deterministic ``N(0, 1)`` vector generated from the protocol seed. This
     matches the historical generic-loader behaviour for standard GloVe files
     while preventing an incidental ``<UNK>`` row in a custom file from silently
     changing the convention. Padding remains a separate all-zero input row.
@@ -75,7 +76,14 @@ def load_paper_glove_embeddings(
 
     unk_id = preprocessor.vocab["<UNK>"]
     rng = np.random.default_rng(seed)
-    matrix[unk_id] = rng.normal(0, 1, embedding_dim).astype(matrix.dtype)
+    unk_vector = rng.normal(0, 1, embedding_dim).astype(matrix.dtype)
+    matrix[unk_id] = unk_vector
+    preprocessor.vocab_metadata["paper_unk_embedding"] = {
+        "convention": PAPER_UNK_EMBEDDING_CONVENTION,
+        "paper_specified": PAPER_UNK_EMBEDDING_PAPER_SPECIFIED,
+        "seed": seed,
+        "sha256": hashlib.sha256(unk_vector.tobytes()).hexdigest(),
+    }
 
     zero_row = np.zeros((1, embedding_dim), dtype=matrix.dtype)
     preprocessor.embedding_matrix = np.concatenate([matrix, zero_row], axis=0)
