@@ -127,19 +127,20 @@ def _score_article(
     total_tokens = 0
     model.eval()
     with torch.no_grad():
-        zero_input = torch.zeros(
-            (1, 1, model.embedding.embedding_dim),
-            dtype=model.embedding.weight.dtype,
+        # Equation (1) in the paper treats the first factor as the unconditional
+        # marginal P(w_1).  With the recurrent state initialised at h_0 = 0,
+        # this is softmax(U_s h_0 + b_s) = softmax(b_s): no synthetic input is
+        # consumed before the first observed word is scored.
+        initial_hidden = torch.zeros(
+            (1, 1, model.fc.in_features),
+            dtype=model.fc.weight.dtype,
             device=device,
         )
-        if isinstance(model, PaperEntropyLSTM):
-            first_output, state = model.forward_embeddings(zero_input, None)
-        else:
-            first_output, state = model.lstm(zero_input, None)
-        first_logits = model.fc(first_output)
+        first_logits = model.fc(initial_hidden)
         first_log_probs = torch.log_softmax(first_logits, dim=-1)
         total_log_prob += first_log_probs[0, 0, tokens[0]].item()
         total_tokens = 1
+        state = None
 
         inputs = tokens[:-1]
         targets = tokens[1:]
