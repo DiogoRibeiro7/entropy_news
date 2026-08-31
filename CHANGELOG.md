@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.2 - 2026-08-31
+- Rewrote the Zenodo record as scholarly research-software metadata rather than repository boilerplate.
+- Adopted the descriptive title `Entropy News: Reproducible Financial-News Entropy Estimation and Decomposition` across Zenodo and citation metadata.
+- Replaced the generic deposit description with a methodological abstract covering the rolling entropy estimator, `ENT_NEWS` / `ENT_MODEL` decomposition, reported LSTM specification, and the boundary between methodological reproduction and empirical Reuters replication.
+- Tightened discovery keywords around financial-news entropy, rolling estimation, language models, and reproducible computational research.
+- No estimator, model, data, dependency, provenance, or scientific-result logic changed.
+
 ## 0.2.1 - 2026-08-31
 - Added authoritative `.zenodo.json` metadata for Zenodo GitHub archiving.
 - Aligned Zenodo, citation, and package metadata at version 0.2.1.
