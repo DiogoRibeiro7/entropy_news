@@ -1,0 +1,36 @@
+{
+  "title": "Entropy News",
+  "description": "Python research software for reproducing and extending the financial-news entropy methodology in Glasserman, Mamaysky, and Qin's New News is Bad News. The repository includes a strict rolling reproduction path for ENT, ENT_NEWS, and ENT_MODEL together with research and engineering extensions. Methodological reproduction does not by itself certify the provenance of proprietary Reuters source data.",
+  "creators": [
+    {
+      "name": "Ribeiro, Diogo",
+      "orcid": "0009-0001-2022-7072",
+      "affiliation": "Faculty of Media Arts and Design, Technical University of Porto"
+    }
+  ],
+  "version": "0.2.0",
+  "access_right": "open",
+  "license": "MIT",
+  "upload_type": "software",
+  "language": "eng",
+  "keywords": [
+    "financial news",
+    "information entropy",
+    "natural language processing",
+    "language modelling",
+    "LSTM",
+    "financial markets",
+    "reproducible research",
+    "research software"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.2139/ssrn.4555832",
+      "scheme": "doi",
+      "relation": "isDerivedFrom"
+    }
+  ],
+  "references": [
+    "Glasserman, Paul; Mamaysky, Harry; Qin, Jimmy (2023). New News is Bad News: Information, Expectations, and Financial Markets. SSRN 4555832. https://doi.org/10.2139/ssrn.4555832"
+  ]
+}
