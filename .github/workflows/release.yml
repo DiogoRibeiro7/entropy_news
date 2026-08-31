@@ -1,79 +1,188 @@
 name: Release
 
 on:
+  workflow_run:
+    workflows:
+      - Quality Assurance
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version without v prefix, for example 0.2.0'
+        description: 'Emergency/recovery version without v prefix'
         required: true
         type: string
 
 permissions:
   contents: write
 
+concurrency:
+  group: entropy-news-release
+  cancel-in-progress: false
+
 jobs:
   release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install Poetry
         run: pip install poetry==1.7.1
-      - name: Verify release request
+      - name: Resolve release candidate
+        id: candidate
         run: |
-          test "$GITHUB_REF_NAME" = "main" || {
-            echo "Release workflow must be dispatched from main, got $GITHUB_REF_NAME"
-            exit 1
-          }
-          PACKAGE_VERSION="$(poetry version -s)"
-          test "$PACKAGE_VERSION" = "${{ inputs.version }}" || {
-            echo "Requested version ${{ inputs.version }} does not match package version $PACKAGE_VERSION"
-            exit 1
-          }
+          git fetch origin main --tags --force
+
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          CURRENT_MAIN="$(git rev-parse origin/main)"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_run" ] && [ "$CANDIDATE_SHA" != "$CURRENT_MAIN" ]; then
+            echo "A newer main commit exists; this QA result is superseded."
+            echo "active=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          VERSION="$(poetry version -s)"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$VERSION" = "${{ inputs.version }}" || {
+              echo "Requested version ${{ inputs.version }} does not match package version $VERSION"
+              exit 1
+            }
+          fi
+
           poetry check --lock
-      - name: Resolve release tag
-        id: release_tag
-        run: |
-          TAG="v${{ inputs.version }}"
-          git fetch --tags --force
+          grep -Eq "^## ${VERSION}([[:space:]-]|$)" CHANGELOG.md || {
+            echo "CHANGELOG.md has no release section for $VERSION"
+            exit 1
+          }
+          grep -Fq "version: \"${VERSION}\"" CITATION.cff || {
+            echo "CITATION.cff does not declare version $VERSION"
+            exit 1
+          }
+
+          PACKAGE_NAME="$(python - <<'PY'
+          import tomllib
+          with open('pyproject.toml', 'rb') as handle:
+              print(tomllib.load(handle)['tool']['poetry']['name'])
+          PY
+          )"
+          TAG="v${VERSION}"
+
           if git rev-parse "$TAG^{commit}" >/dev/null 2>&1; then
             TAG_COMMIT="$(git rev-parse "$TAG^{commit}")"
             git merge-base --is-ancestor "$TAG_COMMIT" origin/main || {
-              echo "Existing tag $TAG does not point to an ancestor of main"
+              echo "Existing tag $TAG is not an ancestor of current main"
               exit 1
             }
-            echo "created=false" >> "$GITHUB_OUTPUT"
-            echo "commit=$TAG_COMMIT" >> "$GITHUB_OUTPUT"
+            TAG_EXISTS=true
           else
-            echo "created=true" >> "$GITHUB_OUTPUT"
-            echo "commit=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            TAG_COMMIT="$CANDIDATE_SHA"
+            TAG_EXISTS=false
           fi
-      - name: Check out existing release tag
-        if: steps.release_tag.outputs.created == 'false'
-        run: git checkout --detach "v${{ inputs.version }}"
-      - name: Verify release source
+
+          echo "active=true" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "tag_commit=$TAG_COMMIT" >> "$GITHUB_OUTPUT"
+      - name: Check out tagged release source
+        if: steps.candidate.outputs.active == 'true' && steps.candidate.outputs.tag_exists == 'true'
+        run: git checkout --detach "${{ steps.candidate.outputs.tag }}"
+      - name: Verify exact release source
+        if: steps.candidate.outputs.active == 'true'
         run: |
-          PACKAGE_VERSION="$(poetry version -s)"
-          test "$PACKAGE_VERSION" = "${{ inputs.version }}" || {
-            echo "Release source version $PACKAGE_VERSION does not match requested version ${{ inputs.version }}"
+          test "$(poetry version -s)" = "${{ steps.candidate.outputs.version }}" || {
+            echo "Release source has the wrong package version"
             exit 1
           }
           poetry check --lock
+      - name: Inspect release destinations
+        if: steps.candidate.outputs.active == 'true'
+        id: destinations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PYPI_URL="https://pypi.org/pypi/${{ steps.candidate.outputs.package_name }}/${{ steps.candidate.outputs.version }}/json"
+          STATUS="$(curl -sS -o /dev/null -w '%{http_code}' "$PYPI_URL")"
+          case "$STATUS" in
+            200) PYPI_EXISTS=true ;;
+            404) PYPI_EXISTS=false ;;
+            *) echo "Unexpected PyPI status $STATUS for $PYPI_URL"; exit 1 ;;
+          esac
+
+          if gh release view "${{ steps.candidate.outputs.tag }}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            GITHUB_RELEASE_EXISTS=true
+          else
+            GITHUB_RELEASE_EXISTS=false
+          fi
+
+          if [ "${{ steps.candidate.outputs.tag_exists }}" = "false" ] && [ "$PYPI_EXISTS" = "true" ]; then
+            echo "PyPI version exists but the corresponding Git tag does not"
+            exit 1
+          fi
+
+          echo "pypi_exists=$PYPI_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "github_release_exists=$GITHUB_RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
       - name: Build package preflight
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.destinations.outputs.pypi_exists == 'false'
         run: poetry build
       - name: Create and push annotated tag
-        if: steps.release_tag.outputs.created == 'true'
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.candidate.outputs.tag_exists == 'false'
         run: |
-          TAG="v${{ inputs.version }}"
+          TAG="${{ steps.candidate.outputs.tag }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Entropy News $TAG"
           git push origin "$TAG"
       - name: Publish to PyPI
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.destinations.outputs.pypi_exists == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
+      - name: Prepare GitHub release notes
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.destinations.outputs.github_release_exists == 'false'
+        run: |
+          VERSION="${{ steps.candidate.outputs.version }}"
+          awk -v version="$VERSION" '
+            $0 ~ "^## " version "([[:space:]-]|$)" {capture=1; next}
+            capture && /^## / {exit}
+            capture {print}
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || {
+            echo "Could not extract release notes for $VERSION"
+            exit 1
+          }
+      - name: Create GitHub Release
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.destinations.outputs.github_release_exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.candidate.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Entropy News ${{ steps.candidate.outputs.tag }}" \
+            --notes-file release-notes.md
+      - name: Report existing release
+        if: >-
+          steps.candidate.outputs.active == 'true' &&
+          steps.destinations.outputs.pypi_exists == 'true' &&
+          steps.destinations.outputs.github_release_exists == 'true'
+        run: echo "Version ${{ steps.candidate.outputs.version }} is already fully released; nothing to do."
