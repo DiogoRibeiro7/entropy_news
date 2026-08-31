@@ -51,7 +51,4 @@ Thumbs.db
 # GloVe files
 *.txt
 
-# Poetry files
-poetry.lock
-
 /.hypothesis/
