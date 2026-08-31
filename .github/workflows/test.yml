@@ -14,9 +14,11 @@ jobs:
           python-version: '3.11'
       - name: Install Poetry
         run: pip install poetry==1.7.1
+      - name: Verify lockfile
+        run: poetry check --lock
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
-          poetry install --with torch --with dev
+          poetry install --with torch --with dev --no-interaction
       - name: Run tests
         run: pytest --cov=entropy_news --cov-fail-under=85 -q
