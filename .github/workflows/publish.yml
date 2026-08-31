@@ -1,6 +1,14 @@
 name: Publish
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish.yml'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - 'CITATION'
+      - 'CITATION.cff'
+      - 'CHANGELOG.md'
   push:
     tags:
       - 'v*'
@@ -17,13 +25,19 @@ jobs:
         run: pip install poetry==1.7.1
       - name: Verify lockfile
         run: poetry check --lock
-      - name: Install dependencies
+      - name: Verify release tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          poetry config virtualenvs.create false
-          poetry install --with torch --with dev --no-interaction
+          PACKAGE_VERSION="$(poetry version -s)"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          test "$PACKAGE_VERSION" = "$TAG_VERSION" || {
+            echo "Tag $GITHUB_REF_NAME does not match package version $PACKAGE_VERSION"
+            exit 1
+          }
       - name: Build package
         run: poetry build
       - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
