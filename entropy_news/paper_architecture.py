@@ -31,7 +31,14 @@ def build_paper_vocabulary(
     for text in texts:
         counter.update(preprocessor.tokenize(preprocessor.clean_text(text)))
 
-    lexical = counter.most_common(predictive_vocab_size - 1)
+    required_lexical = predictive_vocab_size - 1
+    lexical = counter.most_common(required_lexical)
+    if len(lexical) != required_lexical:
+        raise ValueError(
+            "paper vocabulary requires "
+            f"{required_lexical} distinct lexical tokens; found {len(lexical)}"
+        )
+
     preprocessor.vocab = {"<UNK>": 0}
     preprocessor.vocab.update(
         {word: index for index, (word, _) in enumerate(lexical, start=1)}

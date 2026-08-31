@@ -2,6 +2,7 @@ import hashlib
 import json
 
 import numpy as np
+import pytest
 
 from entropy_news.data import TextPreprocessor
 from entropy_news.paper_architecture import (
@@ -12,12 +13,24 @@ from entropy_news.paper_architecture import (
 )
 
 
+def test_paper_vocabulary_requires_full_predictive_cardinality() -> None:
+    pre = TextPreprocessor(vocab_size=4)
+    with pytest.raises(
+        ValueError,
+        match="paper vocabulary requires 3 distinct lexical tokens; found 2",
+    ):
+        build_paper_vocabulary(pre, ["market news market"], 4)
+
+
 def test_paper_unk_embedding_is_seeded_and_not_taken_from_glove(tmp_path) -> None:
     pre = TextPreprocessor(vocab_size=4)
-    padding_id = build_paper_vocabulary(pre, ["market news market"], 4)
+    padding_id = build_paper_vocabulary(pre, ["market news signal market"], 4)
     glove = tmp_path / "glove.txt"
     glove.write_text(
-        "<UNK> 9.0 9.0 9.0\nmarket 1.0 2.0 3.0\nnews 4.0 5.0 6.0\n",
+        "<UNK> 9.0 9.0 9.0\n"
+        "market 1.0 2.0 3.0\n"
+        "news 4.0 5.0 6.0\n"
+        "signal 7.0 8.0 9.0\n",
         encoding="utf-8",
     )
 
@@ -46,9 +59,12 @@ def test_paper_unk_embedding_is_seeded_and_not_taken_from_glove(tmp_path) -> Non
 
 def test_paper_unk_provenance_survives_vocabulary_round_trip(tmp_path) -> None:
     pre = TextPreprocessor(vocab_size=4)
-    padding_id = build_paper_vocabulary(pre, ["market news market"], 4)
+    padding_id = build_paper_vocabulary(pre, ["market news signal market"], 4)
     glove = tmp_path / "glove.txt"
-    glove.write_text("market 1.0 2.0 3.0\n", encoding="utf-8")
+    glove.write_text(
+        "market 1.0 2.0 3.0\nnews 4.0 5.0 6.0\nsignal 7.0 8.0 9.0\n",
+        encoding="utf-8",
+    )
     load_paper_glove_embeddings(
         pre,
         str(glove),
