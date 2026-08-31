@@ -1,4 +1,9 @@
-"""Causal rolling reproduction of the entropy measures in *New News is Bad News*."""
+"""Rolling reproduction of the entropy measures in *New News is Bad News*.
+
+Model weights are updated causally from prior months, while the retained
+vocabulary follows the paper's whole-requested-corpus construction and is
+therefore not a strictly real-time feature-space definition.
+"""
 
 from __future__ import annotations
 
