@@ -96,13 +96,13 @@ jobs:
               )
           PY
       - name: Upload test report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-report-${{ matrix.os }}
           path: pytest-report.txt
       - name: Upload coverage report
         if: matrix.coverage == true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.os }}
           path: coverage.xml
@@ -128,7 +128,7 @@ jobs:
           set -o pipefail
           pytest -m integration -q | tee integration-report.txt
       - name: Upload integration report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: integration-report
           path: integration-report.txt
@@ -154,7 +154,7 @@ jobs:
           set -o pipefail
           pytest -m performance -q | tee performance-report.txt
       - name: Upload performance report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: performance-report
           path: performance-report.txt
