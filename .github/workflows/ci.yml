@@ -21,7 +21,7 @@ jobs:
             python: '3.11'
             coverage: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: validation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: validation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
