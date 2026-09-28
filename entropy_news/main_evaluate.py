@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import argparse
 import logging
+
+from dataexcept import FileReadError
+
 from entropy_news.utils import load_texts, setup_logger
 from entropy_news.utils.cli import load_encoded_dataset, load_model_and_vocab
 
@@ -98,7 +101,7 @@ def main(argv: list[str] | None = None) -> None:
 
     try:
         texts = load_texts(args.data)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, FileReadError) as exc:
         logger.error("%s", exc)
         raise SystemExit(1) from exc
 

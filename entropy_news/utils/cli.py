@@ -7,6 +7,8 @@ import os
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+from dataexcept import FileReadError
+
 try:  # pragma: no cover - torch may not be installed during some checks
     import torch
 except ModuleNotFoundError:  # pragma: no cover
@@ -267,7 +269,7 @@ def load_encoded_dataset(
     if texts is None:
         try:
             texts = load_texts(data_path)
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, FileReadError) as exc:
             raise OSError(str(exc)) from exc
     encoded = [preprocessor.encode(t) for t in texts]
     return NewsDataset(encoded, seq_len=seq_len, in_memory=not lazy)

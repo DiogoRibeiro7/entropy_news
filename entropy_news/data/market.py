@@ -11,6 +11,8 @@ from typing import List, Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from dataexcept import DataLoadingError, ServiceConnectionError
+
 
 @dataclass
 class MarketRecord:
@@ -29,14 +31,17 @@ def load_market_csv(file_path: str, columns: Sequence[str] | None = None) -> Lis
             ``date`` are used when omitted.
     """
     records: List[MarketRecord] = []
-    with open(file_path, newline="") as handle:
-        reader = csv.DictReader(handle)
-        if reader.fieldnames is None:
-            return records
-        selected = [c for c in reader.fieldnames if c != "date"] if columns is None else list(columns)
-        for row in reader:
-            features = [float(row[col]) for col in selected if col in row and row[col]]
-            records.append(MarketRecord(date=row.get("date", ""), features=features))
+    try:
+        with open(file_path, newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames is None:
+                return records
+            selected = [c for c in reader.fieldnames if c != "date"] if columns is None else list(columns)
+            for row in reader:
+                features = [float(row[col]) for col in selected if col in row and row[col]]
+                records.append(MarketRecord(date=row.get("date", ""), features=features))
+    except (OSError, UnicodeError, csv.Error) as exc:
+        raise DataLoadingError(str(file_path), exc) from exc
     return records
 
 
@@ -56,7 +61,7 @@ def fetch_yahoo_history(
             except ``Date`` are used when omitted.
 
     Raises:
-        ConnectionError: If the Yahoo request fails.
+        ServiceConnectionError: If the Yahoo request fails.
     """
 
     period1 = int(datetime.strptime(start, "%Y-%m-%d").timestamp())
@@ -68,8 +73,8 @@ def fetch_yahoo_history(
     try:
         with urlopen(url) as response:
             data = response.read().decode("utf-8")
-    except URLError as err:  # pragma: no cover - network failure
-        raise ConnectionError("failed to fetch data") from err
+    except URLError as err:
+        raise ServiceConnectionError("Yahoo Finance", err) from err
 
     reader = csv.DictReader(StringIO(data))
     if reader.fieldnames is None:
@@ -102,7 +107,7 @@ def fetch_alpha_vantage_history(
             adjusted close price when omitted.
 
     Raises:
-        ConnectionError: If the Alpha Vantage request fails.
+        ServiceConnectionError: If the Alpha Vantage request fails.
         ValueError: If the response is malformed.
     """
 
@@ -113,8 +118,8 @@ def fetch_alpha_vantage_history(
     try:
         with urlopen(url) as response:
             data = json.loads(response.read().decode("utf-8"))
-    except URLError as err:  # pragma: no cover - network failure
-        raise ConnectionError("failed to fetch data") from err
+    except URLError as err:
+        raise ServiceConnectionError("Alpha Vantage", err) from err
 
     series_key = "Time Series (Daily)"
     if series_key not in data:

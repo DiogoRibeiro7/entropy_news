@@ -459,6 +459,20 @@ profiler = ["nvidia-cuda-profiler-api (==13.0.85.*)"]
 sanitizer = ["nvidia-cuda-sanitizer-api (==13.0.85.*)"]
 
 [[package]]
+name = "dataexcept"
+version = "1.7.0"
+description = "A Python package providing structured, easily-extendable custom exception types."
+optional = false
+python-versions = "<3.15,>=3.10"
+files = [
+    {file = "dataexcept-1.7.0-py3-none-any.whl", hash = "sha256:2032f07de4305e638e16227ae421fc85cd53ab30aec3433d8362ddb8e327bb39"},
+    {file = "dataexcept-1.7.0.tar.gz", hash = "sha256:62f15f59b2d41d873a6f6260be4d75baf9ba730da53626080590095cc7579ef6"},
+]
+
+[package.dependencies]
+tomli = {version = "*", markers = "python_version < \"3.11\""}
+
+[[package]]
 name = "docutils"
 version = "0.20.1"
 description = "Docutils -- Python Documentation Utilities"
@@ -1946,5 +1960,5 @@ zstd = ["backports-zstd (>=1.0.0)"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.10"
-content-hash = "aba0caa1567c3d6eb497caf5ee4f623e664eb4724565763ea76d868cb6b745f3"
+python-versions = ">=3.10,<3.15"
+content-hash = "d8aa543c6e80da64eded3400fbe02961361075708f4d37900efdc29bd08bde95"
