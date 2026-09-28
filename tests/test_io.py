@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import pytest
+from dataexcept import FileReadError, FileWriteError
 
 from entropy_news.utils import load_texts, save_texts
 
@@ -35,3 +38,39 @@ def test_load_texts_empty_file(tmp_path) -> None:
     empty.write_text("\n\n")
     with pytest.raises(ValueError, match="empty"):
         load_texts(empty)
+
+
+def test_load_texts_unreadable_path_retains_original_cause(tmp_path: Path) -> None:
+    """A directory at the input path retains its I/O cause and source path."""
+    source = tmp_path / "texts.txt"
+    source.mkdir()
+
+    with pytest.raises(FileReadError) as caught:
+        load_texts(source)
+    assert caught.value.path == str(source)
+    assert isinstance(caught.value.original, IsADirectoryError)
+    assert caught.value.__cause__ is caught.value.original
+
+
+def test_load_texts_invalid_utf8_retains_decode_cause(tmp_path: Path) -> None:
+    """Bad input encoding is reported with its original decode failure."""
+    source = tmp_path / "invalid.txt"
+    source.write_bytes(b"\xff")
+
+    with pytest.raises(FileReadError) as caught:
+        load_texts(source)
+    assert caught.value.path == str(source)
+    assert isinstance(caught.value.original, UnicodeDecodeError)
+
+
+def test_save_texts_failed_directory_creation_retains_output_path(tmp_path: Path) -> None:
+    """A blocked output directory is reported as a structured write failure."""
+    blocker = tmp_path / "blocked"
+    blocker.write_text("file", encoding="utf-8")
+    output = blocker / "texts.txt"
+
+    with pytest.raises(FileWriteError) as caught:
+        save_texts(["hello"], output)
+    assert caught.value.path == str(output)
+    assert isinstance(caught.value.original, OSError)
+    assert caught.value.__cause__ is caught.value.original

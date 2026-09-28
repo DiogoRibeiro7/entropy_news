@@ -3,6 +3,8 @@
 import argparse
 import logging
 
+from dataexcept import FileReadError
+
 from entropy_news.utils import (
     ConfigDefaults,
     ConfigOverrides,
@@ -149,7 +151,7 @@ def main(argv: list[str] | None = None) -> None:
     # Load training data with clearer error reporting
     try:
         texts = load_texts(args.train_data)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, FileReadError) as exc:
         logger.error("%s", exc)
         raise SystemExit(1) from exc
 

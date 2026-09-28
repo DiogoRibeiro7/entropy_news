@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from dataexcept import FileReadError
 
 from entropy_news.main import main as train_main
 from entropy_news.main_evaluate import main as eval_main
@@ -89,6 +90,22 @@ def test_eval_main_missing_data(tmp_path, caplog) -> None:
     assert any("not found" in r.message for r in caplog.records)
 
 
+def test_eval_main_unreadable_data_reports_a_cli_error(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The CLI handles a structured text read error without a traceback."""
+    pytest.importorskip("torch")
+    source = tmp_path / "unreadable.txt"
+    source.mkdir()
+
+    with caplog.at_level("ERROR"):
+        with pytest.raises(SystemExit) as caught:
+            eval_main(["--data", str(source)])
+
+    assert isinstance(caught.value.__cause__, FileReadError)
+    assert any(str(source) in record.message for record in caplog.records)
+
+
 def test_forecast_main_missing_model(tmp_path, caplog) -> None:
     """Forecast CLI should error if the model file is absent."""
 
@@ -135,4 +152,3 @@ def test_forecast_main_missing_data(tmp_path, caplog) -> None:
                 str(model_file),
             ])
     assert any("not found" in r.message for r in caplog.records)
-

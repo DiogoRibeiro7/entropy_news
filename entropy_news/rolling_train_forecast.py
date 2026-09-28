@@ -10,6 +10,8 @@ import logging
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
+from dataexcept import FileReadError
+
 from entropy_news.utils import (
     ConfigDefaults,
     ConfigOverrides,
@@ -291,7 +293,7 @@ def load_texts_for_month(month: str, base_data_dir: str) -> list[str]:
     try:
         # Delegate actual reading to ``utils.load_texts``
         return load_texts(file_path)
-    except OSError as exc:  # pragma: no cover - unlikely to occur in tests
+    except (OSError, FileReadError) as exc:  # pragma: no cover - unlikely to occur in tests
         logger.error("Failed to read %s: %s", file_path, exc)
         raise
 

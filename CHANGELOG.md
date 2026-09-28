@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Classify local text and market CSV I/O failures and market-provider connection failures with DataExcept, preserving their original causes.
+- Keep the paper estimator and successful-run outputs unchanged.
+
 ## 0.2.2 - 2026-08-31
 - Rewrote the Zenodo record as scholarly research-software metadata rather than repository boilerplate.
 - Adopted the descriptive title `Entropy News: Reproducible Financial-News Entropy Estimation and Decomposition` across Zenodo and citation metadata.

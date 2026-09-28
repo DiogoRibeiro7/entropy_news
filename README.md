@@ -145,6 +145,11 @@ Likewise, `entropy-news-rolling` is retained as a generic rolling/fine-tuning wo
 
 ## Model and data layer
 
+Local text and market CSV I/O and provider connection failures carry DataExcept
+error types with the source or destination and original cause. Missing text files
+still raise `FileNotFoundError`, and malformed market values retain their existing
+validation errors.
+
 The repository includes:
 
 - the exact strict paper LSTM plus configurable language models for extensions;
